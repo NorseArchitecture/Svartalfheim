@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<Description>Norse forged primitives: the Result&lt;T&gt; discriminated union, closed parse-failure vocabulary, and hot-path scalar parsers for every boundary crossing into the Norse ecosystem from untrusted sources.</Description>
+		<!-- Self-certify AOT/trim at the source so violations fail here, not downstream. -->
+		<IsAotCompatible>true</IsAotCompatible>
+	</PropertyGroup>
+</Project>
