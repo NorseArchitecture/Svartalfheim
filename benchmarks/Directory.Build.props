@@ -1,0 +1,16 @@
+<Project>
+	<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+	<PropertyGroup>
+		<!--
+			BenchmarkDotNet shapes: benchmark classes are public and unsealed (BDN derives
+			from them) and benchmark methods are instance methods (CA1822). XML-doc
+			obligation stays a src/ law (CS1591).
+		-->
+		<IsPackable>false</IsPackable>
+		<NoWarn>$(NoWarn);CA1822;CS1591</NoWarn>
+		<OutputType>Exe</OutputType>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="BenchmarkDotNet" Version="0.*" />
+	</ItemGroup>
+</Project>

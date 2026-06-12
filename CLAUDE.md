@@ -7,9 +7,10 @@
 Svartalfheim is the forge: `Norse.Primitives`, the foundational primitives realm of the Norse platform. Everything crossing a trust boundary into the ecosystem from untrusted sources flows through the types here — `Result<T>`, its case types, and the hot-path scalar parsers. Scalar→domain conversion only; application error categories (validation/not-found/conflict) belong to the mediator, transport conditions to the host pipeline.
 
 **Authoritative documents (read in this order):**
-1. `../Glitnir/docs/superpowers/specs/2026-06-11-svartalfheim-result-union-boolean-parser-design.md` — the first-increment spec, amended with implementation findings. The amendments ARE the record; trust them over the parent spec where they differ. (Its execution plan sits beside it under `plans/`.)
-2. Parent spec: `../Glitnir/docs/superpowers/specs/2026-05-20-svartalfheim-primitives-design.md` (Glitnir is the design court — all specs, plans, and PoC verdicts live there; it sits beside this realm as a sibling submodule on the Bifrost bridge).
-3. Prior-art lessons: the Crucible — the pre-union `Result<T>`, parser vocabulary, and test matrices this repo learned from. Private prior art; it lives outside this workspace by design and is cited by name, never by path.
+1. `../Glitnir/docs/superpowers/specs/2026-06-11-svartalfheim-pathway-proof-design.md` — the second-increment spec (gateway, combinators, evidence rigs), amended with benchmark findings (§8). (Its execution plan sits beside it under `plans/`.)
+2. `../Glitnir/docs/superpowers/specs/2026-06-11-svartalfheim-result-union-boolean-parser-design.md` — the first-increment spec, amended with implementation findings. The amendments ARE the record; trust them over the parent spec where they differ. (Its execution plan sits beside it under `plans/`.)
+3. Parent spec: `../Glitnir/docs/superpowers/specs/2026-05-20-svartalfheim-primitives-design.md` (Glitnir is the design court — all specs, plans, and PoC verdicts live there; it sits beside this realm as a sibling submodule on the Bifrost bridge).
+4. Prior-art lessons: the Crucible — the pre-union `Result<T>`, parser vocabulary, and test matrices this repo learned from. Private prior art; it lives outside this workspace by design and is cited by name, never by path.
 
 ---
 
@@ -19,6 +20,8 @@ Svartalfheim is the forge: `Norse.Primitives`, the foundational primitives realm
 - `dotnet test Svartalfheim.slnx` — xUnit v3 + Shouldly on Microsoft.Testing.Platform. **VSTest `--filter` does NOT work**; filter with `dotnet test tests/Primitives.Tests -- --filter-class "*.ResultTests"`.
 - SDK pinned by `global.json`: `11.0.100-` prerelease, rollForward latestFeature. C# `LangVersion=preview`.
 - NEVER `dotnet test` a test project that contains zero tests — xUnit v3 fails the run.
+- Benchmarks (manual, Release): `dotnet run -c Release --project benchmarks/Primitives.Benchmarks -- --filter *`. Findings are court filings — file them as amendments to the pathway spec in Glitnir, never as loose notes.
+- AOT smoke: `dotnet publish tests/smoke/Primitives.Aot.Smoke -c Release`, then run the native exe — zero AOT warnings and exit 0 required. Needs the VS "Desktop development with C++" workload on Windows.
 
 ## Architecture Facts (decided — do not re-litigate)
 
@@ -28,6 +31,8 @@ Svartalfheim is the forge: `Norse.Primitives`, the foundational primitives realm
 - **Truncation knowledge lives in `Failure` alone**: parsers pass their trimmed `ReadOnlySpan<char>` to the span ctor overload, which bounds to `MaxInputLength` (256) before allocating. Never pre-truncate in a parser.
 - **Parser template** (BooleanParser is the precedent for ~20 more): static class, `ParseRequired(ReadOnlySpan<char>) → Result<T>` + `ParseOptional(ReadOnlySpan<char>) → Result<T>?`, shared private `Parse`, honest signatures (no `IFormatProvider` on culture-insensitive parsers — a parameter documented as ignored is a lie). Empty→`ParseFailure.Empty`/absent; unrecognized→`Malformed`. No implicit `string → Result<T>` conversions, ever — parsing is an explicit named call.
 - **`ParseFailure` is closed** (Unspecified sentinel / Empty / Malformed). Adding a member is a deliberate breaking change.
+- **`Parser` is the generic gateway** over `where T : notnull, ISpanParsable<T>` — `bool` routes to `BooleanParser` via a JIT-eliminated `typeof` branch (`Unsafe.As` identity reinterpret; sound because `T` is statically `bool` inside the branch — benchmark-verified at ratio 1.02); everything else goes through `T.TryParse(span, provider)`. The provider is required and non-nullable — no defaulting overload, ever. No runtime registry: a type that cannot parse does not compile.
+- **Combinators are `Map`/`Bind`/`Match` only** (law-proving core; `Combine`/async/`*Present` wait for a consumer). Instance methods implemented as union switches — a defaulted `Result<T>` throws `SwitchExpressionException` through them identically to a hand-written switch. The five functor/monad laws are FsCheck-pinned in `ResultLawTests` (portable `Prop.ForAll` style, no integration package). Measured tax: ~2.8× a hand-rolled switch, zero allocation — ergonomics, not the hot path.
 
 ## Toolchain Gotchas (.NET 11 preview 5)
 
@@ -35,6 +40,8 @@ Svartalfheim is the forge: `Norse.Primitives`, the foundational primitives realm
 - xUnit v3 on MTP requires `<OutputType>Exe</OutputType>` on test projects (lives in `tests/Directory.Build.props`).
 - IDE0005 in build mode requires `GenerateDocumentationFile=true` — hence tests keep doc generation on and suppress CS1591 instead. Don't invert that trade.
 - **ReSharper/Rider do not understand C# 15 unions yet** (even EAP builds) — union-related squiggles are visual noise. The compiler is the truth; never alter working union code to appease R#.
+- **BenchmarkDotNet 0.15.x does not recognize the net11.0 preview moniker** — the default out-of-process toolchain crashes in SDK validation. The benchmarks bake `InProcessEmitToolchain` into their config; revisit when BDN learns .NET 11.
+- **.NET 11 escape analysis stack-allocates single-frame boxes** — a micro-benchmark that constructs and consumes a boxing type in one frame reports 0 B allocated. Force escape with `[MethodImpl(MethodImplOptions.NoInlining)]` factory boundaries when the design question is about values that cross method boundaries.
 
 ## House Style
 
@@ -42,12 +49,10 @@ Svartalfheim is the forge: `Norse.Primitives`, the foundational primitives realm
 
 Tabs (except YAML/MD per .editorconfig) · `var` for returns, explicit type + `new()` for construction · omit default accessibility modifiers · XML docs mandatory on all public src members (CS1591 is an error in src) · test naming `Should_{behavior}_when_{condition}`, test classes `public sealed`, test methods omit access modifiers · Shouldly/Xunit usings are global (injected via tests props — never add them per-file).
 
-## Deferred Increments (spec §10 — in rough order)
+## Deferred Increments (pathway-proof spec §7 ledger — in rough order)
 
-1. Generic `Parser.ParseRequired<T>`/`ParseOptional<T>` gateway over `ISpanParsable<T>` (routes `bool` to BooleanParser via JIT-eliminated `typeof(T)` branch — no runtime registry).
-2. Combinators (`Map`/`Bind`/`Match`/`Combine`/`*Present`) + FsCheck monad-law properties — ship together.
-3. `Norse.Primitives.Aot.SmokeTests` (PublishAot gate).
-4. `Norse.Primitives.Benchmarks` (BenchmarkDotNet, zero-alloc verification).
-5. Remaining hot-path parsers, NuGet packaging metadata.
+1. Remaining hot-path parsers (the cartesian explosion, deliberately held until the pathway proof landed — it has).
+2. `Combine`, async combinator siblings, `*Present` variants — await the consumer (parsers/ingestion increment).
+3. NuGet packaging metadata.
 
 Each increment is spec-first: brainstorm → spec → plan → code, with explicit human greenlights at each transition.

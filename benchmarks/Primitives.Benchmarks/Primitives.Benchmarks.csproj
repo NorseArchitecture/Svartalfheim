@@ -1,6 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<ItemGroup>
-		<PackageReference Include="FsCheck" Version="3.*" />
 		<ProjectReference Include="..\..\src\Primitives\Primitives.csproj" />
 	</ItemGroup>
 </Project>

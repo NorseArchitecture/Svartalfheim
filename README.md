@@ -6,8 +6,9 @@ The forge of the Norse Architecture — **`Norse.Primitives`**, the foundational
 
 ## What's forged here
 
-- **`Result<T>`** — a hand-authored C# custom native union over `Success<T>` / `Failure`: zero boxing on both paths, exhaustive two-arm switches, and no way to construct an invalid value.
+- **`Result<T>`** — a hand-authored C# custom native union over `Success<T>` / `Failure`: zero boxing on both paths, exhaustive two-arm switches, no way to construct an invalid value, and a law-proven combinator core (`Map` / `Bind` / `Match` — the functor and monad laws are FsCheck-pinned).
 - **`ParseFailure`** — the closed conversion-failure vocabulary (`Empty`, `Malformed`); adding a member is a deliberate breaking change.
+- **`Parser`** — the generic gateway over `ISpanParsable<T>`: span in, `Result<T>` out, uniform failure semantics, required format provider. Specialists ride JIT-eliminated `typeof` routes; there is no runtime registry — a type that cannot parse does not compile.
 - **Hot-path parsers** — static specialists (`BooleanParser` first; siblings to follow) with `ParseRequired` / `ParseOptional` entry points over `ReadOnlySpan<char>` and honest signatures. Ambiguous input fails loudly; nothing is guessed, nothing falls back silently.
 
 Scalar → domain conversion only: application error categories and transport conditions belong to other realms by design.
@@ -20,6 +21,8 @@ dotnet test Svartalfheim.slnx    # xUnit v3 + Shouldly on Microsoft.Testing.Plat
 ```
 
 Requires the .NET 11 preview SDK pinned by `global.json`. The realm builds standalone — it is its own clone target, not only a Bifrost submodule.
+
+Evidence rigs: `benchmarks/Primitives.Benchmarks` (BenchmarkDotNet — storage, dispatch, and combinator cost, run manually in Release) and `tests/smoke/Primitives.Aot.Smoke` (the pathway must survive `PublishAot` with zero warnings and exit 0; needs the VS C++ build tools).
 
 ## The naming law
 

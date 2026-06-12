@@ -100,6 +100,66 @@ public readonly record struct Result<T> : IUnion where T : notnull
 		return _state == State.Failure;
 	}
 
+	/// <summary>Transforms the success value; a failure flows through untouched.</summary>
+	/// <remarks>
+	/// Combinators are composition ergonomics, not the hot path — row-volume loops
+	/// switch over the cases directly. Nothing here allocates beyond the caller's
+	/// own closures.
+	/// </remarks>
+	/// <typeparam name="TResult">The transformed value's type. Non-nullable by construction.</typeparam>
+	/// <param name="selector">The success-case transform. Exceptions it throws propagate unhandled.</param>
+	/// <returns>The transformed result.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="selector"/> is null.</exception>
+	/// <exception cref="SwitchExpressionException">This value was defaulted rather than constructed.</exception>
+	public Result<TResult> Map<TResult>(Func<T, TResult> selector) where TResult : notnull
+	{
+		ArgumentNullException.ThrowIfNull(selector);
+		return this switch
+		{
+			Success<T>(var value) => new Success<TResult>(selector(value)),
+			Failure failure => failure,
+		};
+	}
+
+	/// <summary>Chains a dependent conversion; a failure flows through untouched.</summary>
+	/// <remarks>
+	/// Combinators are composition ergonomics, not the hot path — row-volume loops
+	/// switch over the cases directly. Nothing here allocates beyond the caller's
+	/// own closures.
+	/// </remarks>
+	/// <typeparam name="TResult">The chained result's value type. Non-nullable by construction.</typeparam>
+	/// <param name="binder">The success-case continuation. Exceptions it throws propagate unhandled.</param>
+	/// <returns>The chained result.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="binder"/> is null.</exception>
+	/// <exception cref="SwitchExpressionException">This value was defaulted rather than constructed.</exception>
+	public Result<TResult> Bind<TResult>(Func<T, Result<TResult>> binder) where TResult : notnull
+	{
+		ArgumentNullException.ThrowIfNull(binder);
+		return this switch
+		{
+			Success<T>(var value) => binder(value),
+			Failure failure => failure,
+		};
+	}
+
+	/// <summary>Consumes the result by handling both cases.</summary>
+	/// <typeparam name="TResult">The handlers' common return type.</typeparam>
+	/// <param name="success">The success-case handler. Exceptions it throws propagate unhandled.</param>
+	/// <param name="failure">The failure-case handler. Exceptions it throws propagate unhandled.</param>
+	/// <returns>Whichever handler ran.</returns>
+	/// <exception cref="ArgumentNullException"><paramref name="success"/> or <paramref name="failure"/> is null.</exception>
+	/// <exception cref="SwitchExpressionException">This value was defaulted rather than constructed.</exception>
+	public TResult Match<TResult>(Func<T, TResult> success, Func<Failure, TResult> failure)
+	{
+		ArgumentNullException.ThrowIfNull(success);
+		ArgumentNullException.ThrowIfNull(failure);
+		return this switch
+		{
+			Success<T>(var value) => success(value),
+			Failure failureCase => failure(failureCase),
+		};
+	}
+
 	/// <summary>Renders "Success(value)", "Failure(Reason, "input")", or "Default(invalid)".</summary>
 	public override string ToString() =>
 		_state switch

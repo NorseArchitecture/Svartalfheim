@@ -1,0 +1,8 @@
+<Project>
+	<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../../'))" />
+	<PropertyGroup>
+		<!-- Console smoke projects, not xUnit projects: deliberately bypasses tests/Directory.Build.props. -->
+		<IsPackable>false</IsPackable>
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+	</PropertyGroup>
+</Project>

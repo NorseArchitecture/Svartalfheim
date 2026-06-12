@@ -7,11 +7,17 @@
 		<File Path="global.json" />
 		<File Path="LICENSE" />
 	</Folder>
+	<Folder Name="/benchmarks/">
+		<File Path="benchmarks/Directory.Build.props" />
+		<Project Path="benchmarks/Primitives.Benchmarks/Primitives.Benchmarks.csproj" />
+	</Folder>
 	<Folder Name="/src/">
 		<Project Path="src/Primitives/Primitives.csproj" />
 	</Folder>
 	<Folder Name="/tests/">
 		<File Path="tests/Directory.Build.props" />
+		<File Path="tests/smoke/Directory.Build.props" />
 		<Project Path="tests/Primitives.Tests/Primitives.Tests.csproj" />
+		<Project Path="tests/smoke/Primitives.Aot.Smoke/Primitives.Aot.Smoke.csproj" />
 	</Folder>
 </Solution>
