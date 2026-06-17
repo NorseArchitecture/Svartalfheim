@@ -142,4 +142,53 @@ public sealed class ParserTests
 	[Fact]
 	void Should_throw_when_optional_provider_is_null() =>
 		Should.Throw<ArgumentNullException>(() => Parser.ParseOptional<int>("42", null!));
+
+	[Fact]
+	void Should_route_integer_vocabulary_through_the_gateway()
+	{
+		Parser.ParseRequired<int>("1,234", _invariant)
+			.TryGetValue(out Success<int> thousands).ShouldBeTrue();
+		thousands.Value.ShouldBe(1234);
+		Parser.ParseRequired<int>("0x2A", _invariant)
+			.TryGetValue(out Success<int> hex).ShouldBeTrue();
+		hex.Value.ShouldBe(42);
+	}
+
+	[Fact]
+	void Should_route_real_percentage_through_the_gateway()
+	{
+		Parser.ParseRequired<double>("50%", _invariant)
+			.TryGetValue(out Success<double> success).ShouldBeTrue();
+		success.Value.ShouldBe(0.5);
+	}
+
+	[Fact]
+	void Should_route_char_code_point_through_the_gateway()
+	{
+		Parser.ParseRequired<char>("65", _invariant)
+			.TryGetValue(out Success<char> success).ShouldBeTrue();
+		success.Value.ShouldBe('A');
+	}
+
+	[Fact]
+	void Should_route_guid_prefix_through_the_gateway()
+	{
+		var expected = new Guid("01020304-0506-0708-090a-0b0c0d0e0f10");
+		Parser.ParseRequired<Guid>("urn:uuid:01020304-0506-0708-090a-0b0c0d0e0f10", _invariant)
+			.TryGetValue(out Success<Guid> success).ShouldBeTrue();
+		success.Value.ShouldBe(expected);
+	}
+
+	[Fact]
+	void Should_route_optional_integer_vocabulary_through_the_gateway()
+	{
+		var actual = Parser.ParseOptional<int>("(7)", _invariant);
+		actual.HasValue.ShouldBeTrue();
+		actual.Value.TryGetValue(out Success<int> success).ShouldBeTrue();
+		success.Value.ShouldBe(-7);
+	}
+
+	[Fact]
+	void Should_require_provider_even_for_culture_insensitive_char() =>
+		Should.Throw<ArgumentNullException>(() => Parser.ParseRequired<char>("A", null!));
 }

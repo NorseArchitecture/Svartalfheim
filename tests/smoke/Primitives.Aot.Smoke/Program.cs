@@ -25,6 +25,22 @@ Check("failure diagnostics survive the generic path", () =>
 Check("optional absence is null, not a failure", () =>
 	Parser.ParseOptional<int>("   ", invariant) is null);
 
+Check("gateway routes integer grouping vocabulary", () =>
+	Parser.ParseRequired<int>("1,234", invariant) == (Result<int>)new Success<int>(1234));
+
+Check("gateway routes hex integer through generic math", () =>
+	Parser.ParseRequired<int>("0x2A", invariant) == (Result<int>)new Success<int>(42));
+
+Check("gateway routes real percentage", () =>
+	Parser.ParseRequired<double>("50%", invariant) == (Result<double>)new Success<double>(0.5));
+
+Check("gateway routes char code point", () =>
+	Parser.ParseRequired<char>("65", invariant) == (Result<char>)new Success<char>('A'));
+
+Check("gateway routes guid prefix stripping", () =>
+	Parser.ParseRequired<Guid>("urn:uuid:01020304-0506-0708-090a-0b0c0d0e0f10", invariant)
+		== (Result<Guid>)new Success<Guid>(new Guid("01020304-0506-0708-090a-0b0c0d0e0f10")));
+
 if (failures > 0)
 {
 	Console.Error.WriteLine($"AOT smoke FAILED: {failures} check(s) failed.");

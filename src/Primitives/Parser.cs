@@ -9,11 +9,17 @@ namespace Norse.Primitives;
 /// <remarks>
 /// <para>
 /// Hot-path specialists are routed by <c>typeof</c> branches resolved at JIT/AOT compile
-/// time — <see cref="bool"/> routes to <see cref="BooleanParser"/>, whose richer vocabulary
-/// the bare <see cref="bool.TryParse(ReadOnlySpan{char}, out bool)"/> lacks; the provider is
-/// deliberately not forwarded there (boolean text is culture-insensitive). Every other type
-/// parses through its own <see cref="ISpanParsable{TSelf}"/> implementation. There is no
-/// runtime registry: a type that cannot parse does not compile.
+/// time — <see cref="bool"/> routes to <see cref="BooleanParser"/>; the integer family
+/// (<see cref="byte"/>, <see cref="sbyte"/>, <see cref="short"/>, <see cref="ushort"/>,
+/// <see cref="int"/>, <see cref="uint"/>, <see cref="long"/>, <see cref="ulong"/>) routes to
+/// <see cref="IntegerParser"/>; the real family (<see cref="float"/>, <see cref="double"/>,
+/// <see cref="decimal"/>) routes to <see cref="RealParser"/>; <see cref="char"/> routes to
+/// <see cref="CharParser"/>; and <see cref="Guid"/> routes to <see cref="GuidParser"/>.
+/// Each specialist carries richer vocabulary than the bare <see cref="ISpanParsable{TSelf}"/>
+/// path. <see cref="char"/> and <see cref="Guid"/> deliberately do not receive the provider —
+/// they are culture-insensitive, exactly as <see cref="bool"/>. Every other type falls through
+/// to the generic <c>T.TryParse(span, provider)</c> path. There is no runtime registry: a type
+/// that cannot parse does not compile.
 /// Leading and trailing whitespace is trimmed on every route. The provider null-check is
 /// uniform — it precedes specialist routing, so even culture-insensitive routes demand a
 /// declared culture at the call site.
@@ -47,6 +53,71 @@ public static class Parser
 			var routed = BooleanParser.ParseRequired(input);
 			return Unsafe.As<Result<bool>, Result<T>>(ref routed);
 		}
+		if (typeof(T) == typeof(byte))
+		{
+			var routed = IntegerParser.ParseRequired<byte>(input, provider);
+			return Unsafe.As<Result<byte>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(sbyte))
+		{
+			var routed = IntegerParser.ParseRequired<sbyte>(input, provider);
+			return Unsafe.As<Result<sbyte>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(short))
+		{
+			var routed = IntegerParser.ParseRequired<short>(input, provider);
+			return Unsafe.As<Result<short>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(ushort))
+		{
+			var routed = IntegerParser.ParseRequired<ushort>(input, provider);
+			return Unsafe.As<Result<ushort>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(int))
+		{
+			var routed = IntegerParser.ParseRequired<int>(input, provider);
+			return Unsafe.As<Result<int>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(uint))
+		{
+			var routed = IntegerParser.ParseRequired<uint>(input, provider);
+			return Unsafe.As<Result<uint>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(long))
+		{
+			var routed = IntegerParser.ParseRequired<long>(input, provider);
+			return Unsafe.As<Result<long>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(ulong))
+		{
+			var routed = IntegerParser.ParseRequired<ulong>(input, provider);
+			return Unsafe.As<Result<ulong>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(float))
+		{
+			var routed = RealParser.ParseRequired<float>(input, provider);
+			return Unsafe.As<Result<float>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(double))
+		{
+			var routed = RealParser.ParseRequired<double>(input, provider);
+			return Unsafe.As<Result<double>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(decimal))
+		{
+			var routed = RealParser.ParseRequired<decimal>(input, provider);
+			return Unsafe.As<Result<decimal>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(char))
+		{
+			var routed = CharParser.ParseRequired(input);
+			return Unsafe.As<Result<char>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(Guid))
+		{
+			var routed = GuidParser.ParseRequired(input);
+			return Unsafe.As<Result<Guid>, Result<T>>(ref routed);
+		}
 		var trimmed = input.Trim();
 		if (trimmed.IsEmpty)
 			return new Failure(ParseFailure.Empty, string.Empty, typeof(T).Name);
@@ -71,6 +142,71 @@ public static class Parser
 			// Identity reinterpret as in ParseRequired; Nullable<X> layout is a function of X alone.
 			var routed = BooleanParser.ParseOptional(input);
 			return Unsafe.As<Result<bool>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(byte))
+		{
+			var routed = IntegerParser.ParseOptional<byte>(input, provider);
+			return Unsafe.As<Result<byte>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(sbyte))
+		{
+			var routed = IntegerParser.ParseOptional<sbyte>(input, provider);
+			return Unsafe.As<Result<sbyte>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(short))
+		{
+			var routed = IntegerParser.ParseOptional<short>(input, provider);
+			return Unsafe.As<Result<short>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(ushort))
+		{
+			var routed = IntegerParser.ParseOptional<ushort>(input, provider);
+			return Unsafe.As<Result<ushort>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(int))
+		{
+			var routed = IntegerParser.ParseOptional<int>(input, provider);
+			return Unsafe.As<Result<int>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(uint))
+		{
+			var routed = IntegerParser.ParseOptional<uint>(input, provider);
+			return Unsafe.As<Result<uint>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(long))
+		{
+			var routed = IntegerParser.ParseOptional<long>(input, provider);
+			return Unsafe.As<Result<long>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(ulong))
+		{
+			var routed = IntegerParser.ParseOptional<ulong>(input, provider);
+			return Unsafe.As<Result<ulong>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(float))
+		{
+			var routed = RealParser.ParseOptional<float>(input, provider);
+			return Unsafe.As<Result<float>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(double))
+		{
+			var routed = RealParser.ParseOptional<double>(input, provider);
+			return Unsafe.As<Result<double>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(decimal))
+		{
+			var routed = RealParser.ParseOptional<decimal>(input, provider);
+			return Unsafe.As<Result<decimal>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(char))
+		{
+			var routed = CharParser.ParseOptional(input);
+			return Unsafe.As<Result<char>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(Guid))
+		{
+			var routed = GuidParser.ParseOptional(input);
+			return Unsafe.As<Result<Guid>?, Result<T>?>(ref routed);
 		}
 		var trimmed = input.Trim();
 		if (trimmed.IsEmpty)
