@@ -14,12 +14,17 @@ namespace Norse.Primitives;
 /// <see cref="int"/>, <see cref="uint"/>, <see cref="long"/>, <see cref="ulong"/>) routes to
 /// <see cref="IntegerParser"/>; the real family (<see cref="float"/>, <see cref="double"/>,
 /// <see cref="decimal"/>) routes to <see cref="RealParser"/>; <see cref="char"/> routes to
-/// <see cref="CharParser"/>; and <see cref="Guid"/> routes to <see cref="GuidParser"/>.
+/// <see cref="CharParser"/>; <see cref="Guid"/> routes to <see cref="GuidParser"/>; and the
+/// temporal family (<see cref="DateOnly"/>, <see cref="DateTime"/>, <see cref="DateTimeOffset"/>,
+/// <see cref="TimeOnly"/>, <see cref="TimeSpan"/>) routes to their respective ISO specialists
+/// (<see cref="DateOnlyParser"/>, <see cref="DateTimeParser"/>, <see cref="DateTimeOffsetParser"/>,
+/// <see cref="TimeOnlyParser"/>, <see cref="TimeSpanParser"/>).
 /// Each specialist carries richer vocabulary than the bare <see cref="ISpanParsable{TSelf}"/>
-/// path. <see cref="char"/> and <see cref="Guid"/> deliberately do not receive the provider —
-/// they are culture-insensitive, exactly as <see cref="bool"/>. Every other type falls through
-/// to the generic <c>T.TryParse(span, provider)</c> path. There is no runtime registry: a type
-/// that cannot parse does not compile.
+/// path. <see cref="char"/>, <see cref="Guid"/>, and all temporal types deliberately do not
+/// receive the provider — they are culture-insensitive on the ISO door, exactly as
+/// <see cref="bool"/>. Every other type falls through to the generic
+/// <c>T.TryParse(span, provider)</c> path. There is no runtime registry: a type that cannot
+/// parse does not compile.
 /// Leading and trailing whitespace is trimmed on every route. The provider null-check is
 /// uniform — it precedes specialist routing, so even culture-insensitive routes demand a
 /// declared culture at the call site.
@@ -118,6 +123,31 @@ public static class Parser
 			var routed = GuidParser.ParseRequired(input);
 			return Unsafe.As<Result<Guid>, Result<T>>(ref routed);
 		}
+		if (typeof(T) == typeof(DateOnly))
+		{
+			var routed = DateOnlyParser.ParseRequired(input);
+			return Unsafe.As<Result<DateOnly>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(DateTime))
+		{
+			var routed = DateTimeParser.ParseRequired(input);
+			return Unsafe.As<Result<DateTime>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(DateTimeOffset))
+		{
+			var routed = DateTimeOffsetParser.ParseRequired(input);
+			return Unsafe.As<Result<DateTimeOffset>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(TimeOnly))
+		{
+			var routed = TimeOnlyParser.ParseRequired(input);
+			return Unsafe.As<Result<TimeOnly>, Result<T>>(ref routed);
+		}
+		if (typeof(T) == typeof(TimeSpan))
+		{
+			var routed = TimeSpanParser.ParseRequired(input);
+			return Unsafe.As<Result<TimeSpan>, Result<T>>(ref routed);
+		}
 		var trimmed = input.Trim();
 		if (trimmed.IsEmpty)
 			return new Failure(ParseFailure.Empty, string.Empty, typeof(T).Name);
@@ -207,6 +237,31 @@ public static class Parser
 		{
 			var routed = GuidParser.ParseOptional(input);
 			return Unsafe.As<Result<Guid>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(DateOnly))
+		{
+			var routed = DateOnlyParser.ParseOptional(input);
+			return Unsafe.As<Result<DateOnly>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(DateTime))
+		{
+			var routed = DateTimeParser.ParseOptional(input);
+			return Unsafe.As<Result<DateTime>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(DateTimeOffset))
+		{
+			var routed = DateTimeOffsetParser.ParseOptional(input);
+			return Unsafe.As<Result<DateTimeOffset>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(TimeOnly))
+		{
+			var routed = TimeOnlyParser.ParseOptional(input);
+			return Unsafe.As<Result<TimeOnly>?, Result<T>?>(ref routed);
+		}
+		if (typeof(T) == typeof(TimeSpan))
+		{
+			var routed = TimeSpanParser.ParseOptional(input);
+			return Unsafe.As<Result<TimeSpan>?, Result<T>?>(ref routed);
 		}
 		var trimmed = input.Trim();
 		if (trimmed.IsEmpty)

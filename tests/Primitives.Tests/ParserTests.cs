@@ -191,4 +191,59 @@ public sealed class ParserTests
 	[Fact]
 	void Should_require_provider_even_for_culture_insensitive_char() =>
 		Should.Throw<ArgumentNullException>(() => Parser.ParseRequired<char>("A", null!));
+
+	[Fact]
+	void Should_route_iso_date_through_the_gateway()
+	{
+		Parser.ParseRequired<DateOnly>("2026-01-02", _invariant)
+			.TryGetValue(out Success<DateOnly> success).ShouldBeTrue();
+		success.Value.ShouldBe(new DateOnly(2026, 1, 2));
+	}
+
+	[Fact]
+	void Should_route_iso_datetimeoffset_to_utc_through_the_gateway()
+	{
+		Parser.ParseRequired<DateTimeOffset>("2026-01-02T15:04:05+05:00", _invariant)
+			.TryGetValue(out Success<DateTimeOffset> success).ShouldBeTrue();
+		success.Value.Offset.ShouldBe(TimeSpan.Zero);
+		success.Value.Hour.ShouldBe(10);
+	}
+
+	[Fact]
+	void Should_route_iso_datetime_and_time_and_timespan_through_the_gateway()
+	{
+		Parser.ParseRequired<DateTime>("2026-01-02T15:04:05Z", _invariant)
+			.TryGetValue(out Success<DateTime> dateTime).ShouldBeTrue();
+		dateTime.Value.Kind.ShouldBe(DateTimeKind.Utc);
+		Parser.ParseRequired<TimeOnly>("15:04:05", _invariant)
+			.TryGetValue(out Success<TimeOnly> time).ShouldBeTrue();
+		time.Value.ShouldBe(new TimeOnly(15, 4, 5));
+		Parser.ParseRequired<TimeSpan>("PT1H30M", _invariant)
+			.TryGetValue(out Success<TimeSpan> span).ShouldBeTrue();
+		span.Value.ShouldBe(new TimeSpan(1, 30, 0));
+	}
+
+	[Theory]
+	[InlineData("1/2/2026")]              // US slash date
+	[InlineData("2026-01-02T15:04:05")]   // zone-less datetime
+	void Should_reject_non_iso_temporal_through_the_gateway(string input)
+	{
+		Parser.ParseRequired<DateTimeOffset>(input, _invariant)
+			.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+		failure.Format.ShouldBe("ISO 8601");
+	}
+
+	[Fact]
+	void Should_not_guess_a_bare_number_as_a_date_through_the_gateway() =>
+		Parser.ParseRequired<DateTimeOffset>("1700000000", _invariant)
+			.TryGetValue(out Failure _).ShouldBeTrue();
+
+	[Fact]
+	void Should_route_optional_temporal_absence_as_null_through_the_gateway() =>
+		Parser.ParseOptional<DateOnly>("  ", _invariant).HasValue.ShouldBeFalse();
+
+	[Fact]
+	void Should_require_provider_even_for_culture_insensitive_temporal() =>
+		Should.Throw<ArgumentNullException>(() => Parser.ParseRequired<DateOnly>("2026-01-02", null!));
 }

@@ -41,6 +41,23 @@ Check("gateway routes guid prefix stripping", () =>
 	Parser.ParseRequired<Guid>("urn:uuid:01020304-0506-0708-090a-0b0c0d0e0f10", invariant)
 		== (Result<Guid>)new Success<Guid>(new Guid("01020304-0506-0708-090a-0b0c0d0e0f10")));
 
+Check("gateway routes an ISO date", () =>
+	Parser.ParseRequired<DateOnly>("2026-01-02", invariant) == (Result<DateOnly>)new Success<DateOnly>(new DateOnly(2026, 1, 2)));
+
+Check("gateway normalizes an offset datetime to UTC", () =>
+	Parser.ParseRequired<DateTimeOffset>("2026-01-02T15:04:05+05:00", invariant)
+		== (Result<DateTimeOffset>)new Success<DateTimeOffset>(new DateTimeOffset(2026, 1, 2, 10, 4, 5, TimeSpan.Zero)));
+
+Check("gateway rejects a zone-less datetime", () =>
+	Parser.ParseRequired<DateTimeOffset>("2026-01-02T15:04:05", invariant).TryGetValue(out Failure _));
+
+Check("gateway routes an ISO-8601 duration", () =>
+	Parser.ParseRequired<TimeSpan>("PT1H30M", invariant) == (Result<TimeSpan>)new Success<TimeSpan>(new TimeSpan(1, 30, 0)));
+
+Check("declared unix epoch parses off-gateway", () =>
+	DateTimeOffsetParser.ParseUnix("1700000000", UnixPrecision.Seconds)
+		.TryGetValue(out Success<DateTimeOffset> epoch) && epoch.Value.Year == 2023);
+
 if (failures > 0)
 {
 	Console.Error.WriteLine($"AOT smoke FAILED: {failures} check(s) failed.");
