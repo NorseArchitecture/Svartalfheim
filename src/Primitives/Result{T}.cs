@@ -44,7 +44,7 @@ public readonly record struct Result<T> : IUnion where T : notnull
 	readonly Failure _failure;
 	readonly State _state;
 
-	/// <summary>Creates a successful result. Also reachable as an implicit union conversion.</summary>
+	/// <summary>Creates a successful result. Also, reachable as an implicit union conversion.</summary>
 	/// <param name="value">The validated value.</param>
 	public Result(Success<T> value)
 	{
@@ -52,7 +52,7 @@ public readonly record struct Result<T> : IUnion where T : notnull
 		_state = State.Success;
 	}
 
-	/// <summary>Creates a failed result. Also reachable as an implicit union conversion.</summary>
+	/// <summary>Creates a failed result. Also, reachable as an implicit union conversion.</summary>
 	/// <param name="value">The conversion failure.</param>
 	/// <exception cref="ArgumentOutOfRangeException">
 	/// <paramref name="value"/> carries the <see cref="ParseFailure.Unspecified"/> sentinel —

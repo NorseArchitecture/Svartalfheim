@@ -67,18 +67,16 @@ public static class CharParser
 			|| trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
 			|| trimmed.StartsWith("&H", StringComparison.OrdinalIgnoreCase))
 		{
-			if (!int.TryParse(trimmed[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out code))
-			{
-				value = '\0';
-				return false;
-			}
-		}
-		else if (!int.TryParse(trimmed, NumberStyles.None, CultureInfo.InvariantCulture, out code))
-		{
+			if (int.TryParse(trimmed[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out code))
+				return InRange(code, out value);
 			value = '\0';
 			return false;
 		}
-		return InRange(code, out value);
+
+		if (int.TryParse(trimmed, NumberStyles.None, CultureInfo.InvariantCulture, out code))
+			return InRange(code, out value);
+		value = '\0';
+		return false;
 	}
 
 	static bool TryHtmlEntity(ReadOnlySpan<char> trimmed, out char value)
@@ -92,18 +90,16 @@ public static class CharParser
 		int code;
 		if (inner.StartsWith("x", StringComparison.OrdinalIgnoreCase))
 		{
-			if (!int.TryParse(inner[1..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out code))
-			{
-				value = '\0';
-				return false;
-			}
-		}
-		else if (!int.TryParse(inner, NumberStyles.None, CultureInfo.InvariantCulture, out code))
-		{
+			if (int.TryParse(inner[1..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out code))
+				return InRange(code, out value);
 			value = '\0';
 			return false;
 		}
-		return InRange(code, out value);
+
+		if (int.TryParse(inner, NumberStyles.None, CultureInfo.InvariantCulture, out code))
+			return InRange(code, out value);
+		value = '\0';
+		return false;
 	}
 
 	static bool InRange(int code, out char value)
