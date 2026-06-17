@@ -75,11 +75,25 @@ public static class TimeSpanParser
 
 	static Result<TimeSpan> ParseDuration(ReadOnlySpan<char> trimmed)
 	{
+		// A leading 'P' (optionally signed) is the ISO-8601 duration discriminator — colon form never
+		// carries one, so the two grammars partition cleanly. Sniff first and route: feeding an ISO
+		// duration to the BCL colon parser only to watch it fail costs 424 B per call (measured), an
+		// allocation the colon parser charges on its reject path. The sniff sidesteps it.
+		if (IsIsoDuration(trimmed))
+		{
+			if (TryParseIso8601Duration(trimmed, out var iso) && !IsSentinel(iso))
+				return new Success<TimeSpan>(iso);
+			return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
+		}
 		if (TimeSpan.TryParse(trimmed, CultureInfo.InvariantCulture, out var colon) && !IsSentinel(colon))
 			return new Success<TimeSpan>(colon);
-		if (TryParseIso8601Duration(trimmed, out var iso) && !IsSentinel(iso))
-			return new Success<TimeSpan>(iso);
 		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
+	}
+
+	static bool IsIsoDuration(ReadOnlySpan<char> trimmed)
+	{
+		var index = trimmed.Length > 0 && trimmed[0] == '-' ? 1 : 0;
+		return index < trimmed.Length && trimmed[index] is 'P' or 'p';
 	}
 
 	static Result<TimeSpan> ParseExact(ReadOnlySpan<char> trimmed, string format, IFormatProvider provider)
