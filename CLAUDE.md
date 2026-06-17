@@ -7,10 +7,11 @@
 Svartalfheim is the forge: `Norse.Primitives`, the foundational primitives realm of the Norse platform. Everything crossing a trust boundary into the ecosystem from untrusted sources flows through the types here — `Result<T>`, its case types, and the hot-path scalar parsers. Scalar→domain conversion only; application error categories (validation/not-found/conflict) belong to the mediator, transport conditions to the host pipeline.
 
 **Authoritative documents (read in this order):**
-1. `../Glitnir/docs/superpowers/specs/2026-06-11-svartalfheim-pathway-proof-design.md` — the second-increment spec (gateway, combinators, evidence rigs), amended with benchmark findings (§8). (Its execution plan sits beside it under `plans/`.)
-2. `../Glitnir/docs/superpowers/specs/2026-06-11-svartalfheim-result-union-boolean-parser-design.md` — the first-increment spec, amended with implementation findings. The amendments ARE the record; trust them over the parent spec where they differ. (Its execution plan sits beside it under `plans/`.)
-3. Parent spec: `../Glitnir/docs/superpowers/specs/2026-05-20-svartalfheim-primitives-design.md` (Glitnir is the design court — all specs, plans, and PoC verdicts live there; it sits beside this realm as a sibling submodule on the Bifrost bridge).
-4. Prior-art lessons: the Crucible — the pre-union `Result<T>`, parser vocabulary, and test matrices this repo learned from. Private prior art; it lives outside this workspace by design and is cited by name, never by path.
+1. `../Glitnir/docs/superpowers/specs/2026-06-17-svartalfheim-numeric-char-guid-parsers-design.md` — the third-increment spec (numeric family, `char`, `Guid` — two generic-math cores `IntegerParser`/`RealParser` plus `CharParser`/`GuidParser`, all routed through the gateway). Its execution plan sits beside it under `plans/`; §9 carries the temporal-parser ledger forward (the next increment).
+2. `../Glitnir/docs/superpowers/specs/2026-06-11-svartalfheim-pathway-proof-design.md` — the second-increment spec (gateway, combinators, evidence rigs), amended with benchmark findings (§8). (Its execution plan sits beside it under `plans/`.)
+3. `../Glitnir/docs/superpowers/specs/2026-06-11-svartalfheim-result-union-boolean-parser-design.md` — the first-increment spec, amended with implementation findings. The amendments ARE the record; trust them over the parent spec where they differ. (Its execution plan sits beside it under `plans/`.)
+4. Parent spec: `../Glitnir/docs/superpowers/specs/2026-05-20-svartalfheim-primitives-design.md` (Glitnir is the design court — all specs, plans, and PoC verdicts live there; it sits beside this realm as a sibling submodule on the Bifrost bridge).
+5. Prior-art lessons: the Crucible — the pre-union `Result<T>`, parser vocabulary, and test matrices this repo learned from. Private prior art; it lives outside this workspace by design and is cited by name, never by path.
 
 ---
 
@@ -51,7 +52,7 @@ Tabs (except YAML/MD per .editorconfig) · `var` for returns, explicit type + `n
 
 ## Deferred Increments (pathway-proof spec §7 ledger — in rough order)
 
-1. Remaining hot-path parsers (the cartesian explosion, deliberately held until the pathway proof landed — it has).
+1. Temporal parsers (`DateOnly`/`DateTime`/`DateTimeOffset`/`TimeOnly`/`TimeSpan`) — the next increment. The numeric family, `char`, and `Guid` landed 2026-06-17 (third-increment spec above); temporal was deliberately split off because it carries a **format axis** the others lack: §2.6's "exactly one accepted representation per ingress path" collides with both the Crucible's culture auto-detect (forbidden) and the gateway's uniform `(span, provider)` signature, so exact-format pinning, Unix-timestamp support, and the directly-called-vs-gateway fork are its own spec's work (see third-increment spec §2 "Deferred" and §9).
 2. `Combine`, async combinator siblings, `*Present` variants — await the consumer (parsers/ingestion increment).
 3. NuGet packaging metadata.
 
