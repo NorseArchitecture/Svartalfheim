@@ -29,10 +29,15 @@ public sealed class TimeSpanParserTests
 	}
 
 	[Fact]
-	void Should_parse_iso_weeks_and_fractional_seconds()
+	void Should_parse_iso_weeks_designator()
 	{
 		TimeSpanParser.ParseRequired("P2W").TryGetValue(out Success<TimeSpan> weeks).ShouldBeTrue();
 		weeks.Value.ShouldBe(TimeSpan.FromDays(14));
+	}
+
+	[Fact]
+	void Should_parse_iso_fractional_seconds()
+	{
 		TimeSpanParser.ParseRequired("PT1.5S").TryGetValue(out Success<TimeSpan> frac).ShouldBeTrue();
 		frac.Value.ShouldBe(TimeSpan.FromSeconds(1.5));
 	}

@@ -210,14 +210,24 @@ public sealed class ParserTests
 	}
 
 	[Fact]
-	void Should_route_iso_datetime_and_time_and_timespan_through_the_gateway()
+	void Should_route_iso_datetime_to_utc_through_the_gateway()
 	{
 		Parser.ParseRequired<DateTime>("2026-01-02T15:04:05Z", _invariant)
 			.TryGetValue(out Success<DateTime> dateTime).ShouldBeTrue();
 		dateTime.Value.Kind.ShouldBe(DateTimeKind.Utc);
+	}
+
+	[Fact]
+	void Should_route_iso_time_through_the_gateway()
+	{
 		Parser.ParseRequired<TimeOnly>("15:04:05", _invariant)
 			.TryGetValue(out Success<TimeOnly> time).ShouldBeTrue();
 		time.Value.ShouldBe(new TimeOnly(15, 4, 5));
+	}
+
+	[Fact]
+	void Should_route_iso_timespan_through_the_gateway()
+	{
 		Parser.ParseRequired<TimeSpan>("PT1H30M", _invariant)
 			.TryGetValue(out Success<TimeSpan> span).ShouldBeTrue();
 		span.Value.ShouldBe(new TimeSpan(1, 30, 0));
