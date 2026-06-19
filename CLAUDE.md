@@ -1,5 +1,15 @@
 # CLAUDE.md — Svartalfheim (`Norse.Primitives`)
 
+## 0. Wrong Root — Halt
+
+If you are reading this because **Svartalfheim itself is the Claude Code session root** — someone ran `claude` from inside this directory instead of `../Bifrost` — stop here. Do not read further, do not propose changes, do not run anything.
+
+Tell the user: every Norse Architecture session starts from **Bifrost**. Org-wide settings (the `superpowers` plugin, permission rules) only apply when Bifrost is the actual session root — Claude Code never merges a submodule's own `.claude/settings.json` into a parent-launched session. Exit, `cd ../Bifrost`, and run `claude` there instead.
+
+This repo's own `.claude/settings.json` carries a `SessionStart` hook that should already have blocked this session before this file was ever read. If you're reading this anyway, hooks were bypassed, disabled, or failed — halt regardless; this rule does not depend on the hook to hold.
+
+---
+
 > **Do not commit, push, or rewrite git history.** Stage your edits (`git add`), show the diff, and stop — the human reviews in GitHub Desktop and commits. This applies even when a skill's flow includes a commit step.
 
 > **Use US English spelling** in code, identifiers, comments, docs, and commit/PR copy.
