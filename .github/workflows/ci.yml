@@ -1,0 +1,9 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    uses: NorseArchitecture/.github/.github/workflows/ci-build-test.yml@master
