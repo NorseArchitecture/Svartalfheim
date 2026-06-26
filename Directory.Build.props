@@ -15,24 +15,14 @@
 			brand-free, so a fork rebrands by changing "Norse" once per realm — no file renames.
 		-->
 		<AssemblyName>Norse.$(MSBuildProjectName)</AssemblyName>
-		<Authors>Norse Architecture</Authors>
-		<Deterministic>true</Deterministic>
 		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<LangVersion>preview</LangVersion>
-		<MinVerTagPrefix>v</MinVerTagPrefix>
 		<Nullable>enable</Nullable>
-		<PackageId>Norse.$(MSBuildProjectName)</PackageId>
 		<RootNamespace>Norse.$(MSBuildProjectName)</RootNamespace>
 		<TargetFramework>net11.0</TargetFramework>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 		<WarningLevel>9999</WarningLevel>
 	</PropertyGroup>
-	<ItemGroup>
-		<PackageReference Include="MinVer" Version="6.*">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-	</ItemGroup>
 </Project>
