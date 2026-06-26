@@ -29,7 +29,7 @@ Svartalfheim is the forge: `Norse.Primitives`, the foundational primitives realm
 
 - `dotnet build Svartalfheim.slnx` — warnings are errors (WarningLevel 9999, EnforceCodeStyleInBuild). A single warning fails.
 - `dotnet test Svartalfheim.slnx` — xUnit v3 + Shouldly on Microsoft.Testing.Platform. **VSTest `--filter` does NOT work**; filter with `dotnet test tests/Primitives.Tests -- --filter-class "*.ResultTests"`.
-- SDK pinned by `global.json`: `11.0.100-` prerelease, rollForward latestFeature. C# `LangVersion=preview`.
+- SDK pinned by `global.json`: `11.0.100`, rollForward latestFeature, allowPrerelease true. C# `LangVersion=preview`.
 - NEVER `dotnet test` a test project that contains zero tests — xUnit v3 fails the run.
 - Benchmarks (manual, Release): `dotnet run -c Release --project benchmarks/Primitives.Benchmarks -- --filter *`. Findings are court filings — file them as amendments to the pathway spec in Glitnir, never as loose notes.
 - AOT smoke: `dotnet publish tests/smoke/Primitives.Aot.Smoke -c Release`, then run the native exe — zero AOT warnings and exit 0 required. Needs the VS "Desktop development with C++" workload on Windows.
