@@ -9,6 +9,7 @@ permissions:
   contents: write
   packages: write
   security-events: write
+  pull-requests: write 
 
 jobs:
   release:
@@ -17,7 +18,5 @@ jobs:
   phone-home:
     needs: [release]
     uses: NorseArchitecture/.github/.github/workflows/phone-home-nuget.yml@master
-    permissions:
-      pull-requests: write
     secrets:
       token: ${{ secrets.SCATTER_PAT }}
