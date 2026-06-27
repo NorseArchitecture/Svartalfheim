@@ -58,6 +58,15 @@ Check("declared unix epoch parses off-gateway", () =>
 	DateTimeOffsetParser.ParseUnix("1700000000", UnixPrecision.Seconds)
 		.TryGetValue(out Success<DateTimeOffset> epoch) && epoch.Value.Year == 2023);
 
+Check("TimeZoneParser resolves a known IANA id off-gateway", () =>
+	TimeZoneParser.ParseRequired("America/Chicago").TryGetValue(out Success<TimeZoneInfo> _));
+
+Check("TemporalFusion fuses ISO date, time, and IANA zone to UTC", () =>
+	TemporalFusion.FuseRequired("2026-06-15", "10:00:00", "America/Chicago")
+		.TryGetValue(out Success<DateTime> fused)
+		&& fused.Value.Kind == DateTimeKind.Utc
+		&& fused.Value == new DateTime(2026, 6, 15, 15, 0, 0, DateTimeKind.Utc));
+
 if (failures > 0)
 {
 	Console.Error.WriteLine($"AOT smoke FAILED: {failures} check(s) failed.");
