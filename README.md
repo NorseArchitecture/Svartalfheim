@@ -2,7 +2,7 @@
 
 > Home of the dvergar, the master smiths who forged Mjölnir, Gleipnir, and Gungnir.
 
-<img width="720" height="960" alt="Svartalfheim — the underground realm of the dvergar, where the fires of the forge never die and the finest weapons in the nine realms are hammered into being" src="https://github.com/user-attachments/assets/bf97a1f1-3a7b-42d0-930d-6b8c6c3d4063" />
+![Svartalfheim — the underground realm of the dvergar, where the fires of the forge never die and the finest weapons in the nine realms are hammered into being](https://github.com/user-attachments/assets/bf97a1f1-3a7b-42d0-930d-6b8c6c3d4063 "Svartalfheim — home of the dvergar, master smiths of the nine realms")
 
 *Image credit: [@norsemythologyclips](https://www.instagram.com/norsemythologyclips/) — go follow them.*
 
