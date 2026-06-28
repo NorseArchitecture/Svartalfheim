@@ -2,6 +2,10 @@
 
 > Home of the dvergar, the master smiths who forged Mjölnir, Gleipnir, and Gungnir.
 
+<img width="720" height="960" alt="Svartalfheim — the underground realm of the dvergar, where the fires of the forge never die and the finest weapons in the nine realms are hammered into being" src="https://github.com/user-attachments/assets/bf97a1f1-3a7b-42d0-930d-6b8c6c3d4063" />
+
+*Image credit: [@norsemythologyclips](https://www.instagram.com/norsemythologyclips/) — go follow them.*
+
 The forge of the Norse Architecture — **`Norse.Primitives`**, the foundational realm. Everything crossing a trust boundary into the ecosystem from an untrusted source flows through the types forged here: the `Result<T>` discriminated union, its closed parse-failure vocabulary, and the hot-path scalar parsers.
 
 ## What's forged here
