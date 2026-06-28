@@ -36,3 +36,7 @@ Project folders and `.csproj` files are brand-free (`src/Primitives/Primitives.c
 ## The cosmos
 
 Svartalfheim is one realm of the [Norse Architecture](https://github.com/NorseArchitecture). The whole platform composes at [Bifröst](https://github.com/NorseArchitecture/Bifrost) — clone once, cross the bridge. Every design is tried in [Glitnir](https://github.com/NorseArchitecture/Glitnir), the design court, before code is forged here; this realm's specs and plans live in the court's [docs/Svartalfheim/](https://github.com/NorseArchitecture/Glitnir/tree/master/docs/Svartalfheim).
+
+## Soundtrack: Svartalfheim | God of War Ragnarök (Original Soundtrack)
+[![Soundtrack: Svartalfheim | God of War Ragnarök (Original Soundtrack)](https://img.youtube.com/vi/BCk4E0me2GE/maxresdefault.jpg)](https://www.youtube.com/watch?v=BCk4E0me2GE)
+
