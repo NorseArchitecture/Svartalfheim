@@ -96,4 +96,46 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 			? new SqlGuid(Value).CompareTo(new SqlGuid(normalizedOther.Value))
 			: Value.CompareTo(normalizedOther.Value);
 	}
+
+	/// <summary>
+	/// Fills <paramref name="destination"/> with new values sharing a single current-time capture, each
+	/// claiming a contiguous slot in the process-global counter. All <see cref="GuidByteOrder.Rfc9562"/>.
+	/// </summary>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="destination"/> exceeds the 26-bit counter space (67,108,864).</exception>
+	public static void Fill(Span<SequentialGuid> destination)
+	{
+		if (destination.Length > 0x400_0000)
+			throw new ArgumentOutOfRangeException(nameof(destination),
+				"Batch size must not exceed the 26-bit counter space (67,108,864).");
+		if (destination.IsEmpty)
+			return;
+
+		var unixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+		var count = destination.Length;
+		var start = Interlocked.Add(ref _counter, count) - count + 1;
+
+		Span<byte> entropy = stackalloc byte[6];
+		for (var i = 0; i < count; i++)
+		{
+			RandomNumberGenerator.Fill(entropy);
+			var counter = (start + i) & 0x3FFFFFF;
+			var value = SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, entropy);
+			destination[i] = new SequentialGuid(value, GuidByteOrder.Rfc9562);
+		}
+	}
+
+	/// <summary>Creates an array of <paramref name="count"/> new values sharing a single current-time capture.</summary>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative or exceeds the 26-bit counter space.</exception>
+	public static SequentialGuid[] CreateMany(int count)
+	{
+		if (count is < 0 or > 0x400_0000)
+			throw new ArgumentOutOfRangeException(nameof(count),
+				"Count must be between 0 and the 26-bit counter space (67,108,864).");
+		if (count == 0)
+			return [];
+
+		var result = new SequentialGuid[count];
+		Fill(result);
+		return result;
+	}
 }
