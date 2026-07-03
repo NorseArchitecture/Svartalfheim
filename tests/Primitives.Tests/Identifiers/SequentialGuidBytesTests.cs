@@ -112,6 +112,29 @@ public sealed class SequentialGuidBytesTests
 	}
 
 	[Fact]
+	void Should_sort_correctly_under_sql_server_semantics_across_a_bottom12_byte_boundary()
+	{
+		// Distinct from the 12-to-14-bit carry test above: this exercises byte boundaries entirely
+		// WITHIN the 12-bit low counter chunk (e.g. 0x0FF -> 0x100), which never touches top14 and
+		// so only catches a bug in how bottom12's own bits are split across sql[6]/sql[7].
+		const long FixedMs = 1_800_000_000_000L;
+		List<(int Counter, SqlGuid Sql)> sequence = [];
+		for (var counter = 0; counter <= 4200; counter++)
+		{
+			byte[] entropy = new byte[6];
+			RandomNumberGenerator.Fill(entropy);
+			var rfcGuid = SequentialGuidBytes.GenerateRfc(FixedMs, counter, entropy);
+			var sqlGuid = SequentialGuidBytes.ToSqlOrder(rfcGuid);
+			sequence.Add((counter, new SqlGuid(sqlGuid)));
+		}
+
+		var byCounter = sequence.OrderBy(x => x.Counter).Select(x => x.Counter).ToArray();
+		var bySqlOrder = sequence.OrderBy(x => x.Sql).Select(x => x.Counter).ToArray();
+
+		bySqlOrder.ShouldBe(byCounter);
+	}
+
+	[Fact]
 	void Should_sort_correctly_under_sql_server_semantics_across_a_millisecond_boundary()
 	{
 		const long FixedMs = 1_800_000_000_000L;

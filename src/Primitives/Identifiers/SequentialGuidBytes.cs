@@ -86,8 +86,11 @@ static class SequentialGuidBytes
 		sql[15] = native[4];
 		sql[8] = (byte)(variant | ((top14 >> 8) & 0x3F));
 		sql[9] = (byte)(top14 & 0xFF);
-		sql[7] = (byte)(version | ((bottom12 >> 8) & 0x0F));
-		sql[6] = (byte)(bottom12 & 0xFF);
+		// native[6] is compared before native[7] under SqlGuid's significance order, so the more
+		// significant 8 bits of bottom12 go in sql[6] and the less significant 4 bits (plus the
+		// fixed version nibble) go in sql[7] — the mirror image of the {8,9} pair above.
+		sql[6] = (byte)((bottom12 >> 4) & 0xFF);
+		sql[7] = (byte)(version | (bottom12 & 0x0F));
 		sql[4] = native[10];
 		sql[5] = native[11];
 		sql[0] = native[12];
@@ -106,7 +109,7 @@ static class SequentialGuidBytes
 		sqlOrdered.TryWriteBytes(sql);
 
 		var top14 = ((sql[8] & 0x3F) << 8) | sql[9];
-		var bottom12 = ((sql[7] & 0x0F) << 8) | sql[6];
+		var bottom12 = (sql[6] << 4) | (sql[7] & 0x0F);
 		var counter = (top14 << 12) | bottom12;
 
 		var counterHi = (counter >> 14) & 0xFFF;
