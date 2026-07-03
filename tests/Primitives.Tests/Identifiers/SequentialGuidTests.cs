@@ -41,7 +41,7 @@ public sealed class SequentialGuidTests
 	}
 
 	[Fact]
-	void Should_round_trip_through_sql_order_and_back()
+	void Should_round_trip_through_sql_order_and_back_when_converted_both_ways()
 	{
 		SequentialGuid original = new();
 
@@ -61,7 +61,7 @@ public sealed class SequentialGuidTests
 	}
 
 	[Fact]
-	void Should_be_equal_regardless_of_byte_order_tag()
+	void Should_be_equal_when_byte_order_tags_differ_but_identity_matches()
 	{
 		SequentialGuid rfcTagged = new();
 		var sqlTagged = rfcTagged.ToSqlOrder();
@@ -93,7 +93,7 @@ public sealed class SequentialGuidTests
 	}
 
 	[Fact]
-	void Should_unwrap_implicitly_to_guid()
+	void Should_unwrap_to_guid_when_used_in_a_guid_typed_context()
 	{
 		SequentialGuid value = new();
 
