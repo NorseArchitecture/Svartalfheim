@@ -1,3 +1,4 @@
+using System.Data.SqlTypes;
 using Norse.Primitives.Identifiers;
 
 namespace Norse.Primitives.Tests.Identifiers;
@@ -55,5 +56,107 @@ public sealed class SequentialGuidBytesTests
 		var ctrLo = ((native[8] & 0x3F) << 8) | native[9];
 		var readBackCounter = (ctrHi << 14) | ctrLo;
 		readBackCounter.ShouldBe(counter & 0x3FFFFFF);
+	}
+
+	[Fact]
+	void Should_round_trip_through_sql_order_and_back_for_many_generated_values()
+	{
+#pragma warning disable CA5394 // deterministic seed drives reproducible test data, not a security use
+		var random = new Random(1);
+		for (var trial = 0; trial < 2000; trial++)
+		{
+			var unixMilliseconds = random.NextInt64(0, 0x0000_FFFF_FFFF_FFFF);
+			var counter = random.Next(0, 0x400_0000);
+			var entropy = new byte[6];
+			random.NextBytes(entropy);
+#pragma warning restore CA5394
+
+			var rfcGuid = SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, entropy);
+			var sqlGuid = SequentialGuidBytes.ToSqlOrder(rfcGuid);
+			var roundTripped = SequentialGuidBytes.ToRfcOrder(sqlGuid);
+
+			roundTripped.ShouldBe(rfcGuid);
+		}
+	}
+
+	[Fact]
+	void Should_keep_version_and_variant_bits_fixed_when_converted_to_sql_order()
+	{
+		var rfcGuid = SequentialGuidBytes.GenerateRfc(1_800_000_000_000L, 123, [1, 2, 3, 4, 5, 6]);
+		var sqlGuid = SequentialGuidBytes.ToSqlOrder(rfcGuid);
+
+		GuidVersionBits.HasVersionAndVariant(rfcGuid, 7).ShouldBeTrue();
+		GuidVersionBits.HasVersionAndVariant(sqlGuid, 7).ShouldBeTrue();
+	}
+
+	[Fact]
+	void Should_sort_correctly_under_sql_server_semantics_across_a_counter_carry_boundary()
+	{
+		// The counter's mirrored 14/12 repack exists specifically so ordering survives the
+		// 12-bit carry boundary (0xFFF -> 0x1000) under SQL Server's comparison, not just plain Guid's.
+#pragma warning disable IDE1006
+		const long fixedMs = 1_800_000_000_000L;
+#pragma warning restore IDE1006
+#pragma warning disable CA5394 // deterministic seed drives reproducible test data, not a security use
+		var random = new Random(2);
+		var sequence = new List<(int Counter, SqlGuid Sql)>();
+		for (var counter = 4090; counter <= 4100; counter++)
+		{
+			var entropy = new byte[6];
+			random.NextBytes(entropy);
+#pragma warning restore CA5394
+			var rfcGuid = SequentialGuidBytes.GenerateRfc(fixedMs, counter, entropy);
+			var sqlGuid = SequentialGuidBytes.ToSqlOrder(rfcGuid);
+			sequence.Add((counter, new SqlGuid(sqlGuid)));
+		}
+
+		var byCounter = sequence.OrderBy(x => x.Counter).Select(x => x.Counter).ToArray();
+		var bySqlOrder = sequence.OrderBy(x => x.Sql).Select(x => x.Counter).ToArray();
+
+		bySqlOrder.ShouldBe(byCounter);
+	}
+
+	[Fact]
+	void Should_sort_correctly_under_sql_server_semantics_across_a_millisecond_boundary()
+	{
+#pragma warning disable IDE1006
+		const long fixedMs = 1_800_000_000_000L;
+#pragma warning restore IDE1006
+#pragma warning disable CA5394 // deterministic seed drives reproducible test data, not a security use
+		var random = new Random(3);
+		var sequence = new List<(int Index, SqlGuid Sql)>();
+		var index = 0;
+		for (var msOffset = 0; msOffset < 5; msOffset++)
+		{
+			for (var counter = 0; counter < 3; counter++)
+			{
+				var entropy = new byte[6];
+				random.NextBytes(entropy);
+#pragma warning restore CA5394
+				var rfcGuid = SequentialGuidBytes.GenerateRfc(fixedMs + msOffset, counter, entropy);
+				var sqlGuid = SequentialGuidBytes.ToSqlOrder(rfcGuid);
+				sequence.Add((index++, new SqlGuid(sqlGuid)));
+			}
+		}
+
+		var expected = sequence.Select(x => x.Index).ToArray();
+		var actual = sequence.OrderBy(x => x.Sql).Select(x => x.Index).ToArray();
+
+		actual.ShouldBe(expected);
+	}
+
+	[Fact]
+	void Should_extract_the_matching_timestamp_from_both_byte_orders()
+	{
+#pragma warning disable IDE1006
+		const long unixMilliseconds = 1_750_000_000_123L;
+#pragma warning restore IDE1006
+		var rfcGuid = SequentialGuidBytes.GenerateRfc(unixMilliseconds, 7, [9, 8, 7, 6, 5, 4]);
+		var sqlGuid = SequentialGuidBytes.ToSqlOrder(rfcGuid);
+
+		var expected = DateTimeOffset.FromUnixTimeMilliseconds(unixMilliseconds).UtcDateTime;
+
+		SequentialGuidBytes.ExtractTimestamp(rfcGuid, GuidByteOrder.Rfc9562).ShouldBe(expected);
+		SequentialGuidBytes.ExtractTimestamp(sqlGuid, GuidByteOrder.SqlServer).ShouldBe(expected);
 	}
 }

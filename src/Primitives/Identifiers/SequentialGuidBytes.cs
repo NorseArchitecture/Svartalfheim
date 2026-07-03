@@ -59,4 +59,98 @@ static class SequentialGuidBytes
 
 		return new Guid(bytes, bigEndian: true);
 	}
+
+	/// <summary>Converts an <see cref="GuidByteOrder.Rfc9562"/>-ordered value to <see cref="GuidByteOrder.SqlServer"/> order.</summary>
+	[SkipLocalsInit]
+	internal static Guid ToSqlOrder(Guid rfcOrdered)
+	{
+		Span<byte> native = stackalloc byte[16];
+		rfcOrdered.TryWriteBytes(native);
+
+		var counterHi = ((native[7] & 0x0F) << 8) | native[6];
+		var counterLo = ((native[8] & 0x3F) << 8) | native[9];
+		var counter = (counterHi << 14) | counterLo;
+
+		var top14 = (counter >> 12) & 0x3FFF;
+		var bottom12 = counter & 0xFFF;
+
+		var version = (byte)(native[7] & 0xF0);
+		var variant = (byte)(native[8] & 0xC0);
+
+		Span<byte> sql = stackalloc byte[16];
+		sql[10] = native[3];
+		sql[11] = native[2];
+		sql[12] = native[1];
+		sql[13] = native[0];
+		sql[14] = native[5];
+		sql[15] = native[4];
+		sql[8] = (byte)(variant | ((top14 >> 8) & 0x3F));
+		sql[9] = (byte)(top14 & 0xFF);
+		sql[7] = (byte)(version | ((bottom12 >> 8) & 0x0F));
+		sql[6] = (byte)(bottom12 & 0xFF);
+		sql[4] = native[10];
+		sql[5] = native[11];
+		sql[0] = native[12];
+		sql[1] = native[13];
+		sql[2] = native[14];
+		sql[3] = native[15];
+
+		return new Guid(sql);
+	}
+
+	/// <summary>Converts a <see cref="GuidByteOrder.SqlServer"/>-ordered value back to <see cref="GuidByteOrder.Rfc9562"/> order.</summary>
+	[SkipLocalsInit]
+	internal static Guid ToRfcOrder(Guid sqlOrdered)
+	{
+		Span<byte> sql = stackalloc byte[16];
+		sqlOrdered.TryWriteBytes(sql);
+
+		var top14 = ((sql[8] & 0x3F) << 8) | sql[9];
+		var bottom12 = ((sql[7] & 0x0F) << 8) | sql[6];
+		var counter = (top14 << 12) | bottom12;
+
+		var counterHi = (counter >> 14) & 0xFFF;
+		var counterLo = counter & 0x3FFF;
+
+		var version = (byte)(sql[7] & 0xF0);
+		var variant = (byte)(sql[8] & 0xC0);
+
+		Span<byte> native = stackalloc byte[16];
+		native[3] = sql[10];
+		native[2] = sql[11];
+		native[1] = sql[12];
+		native[0] = sql[13];
+		native[5] = sql[14];
+		native[4] = sql[15];
+		native[6] = (byte)(counterHi & 0xFF);
+		native[7] = (byte)(version | ((counterHi >> 8) & 0x0F));
+		native[8] = (byte)(variant | ((counterLo >> 8) & 0x3F));
+		native[9] = (byte)(counterLo & 0xFF);
+		native[10] = sql[4];
+		native[11] = sql[5];
+		native[12] = sql[0];
+		native[13] = sql[1];
+		native[14] = sql[2];
+		native[15] = sql[3];
+
+		return new Guid(native);
+	}
+
+	/// <summary>
+	/// Extracts the embedded 48-bit Unix millisecond timestamp, normalizing to RFC order first if
+	/// <paramref name="order"/> is <see cref="GuidByteOrder.SqlServer"/>.
+	/// </summary>
+	internal static DateTime ExtractTimestamp(Guid value, GuidByteOrder order)
+	{
+		var rfcValue = order == GuidByteOrder.SqlServer ? ToRfcOrder(value) : value;
+
+		Span<byte> native = stackalloc byte[16];
+		rfcValue.TryWriteBytes(native);
+
+		var unixMilliseconds =
+			((long)native[3] << 40) | ((long)native[2] << 32) | ((long)native[1] << 24) |
+			((long)native[0] << 16) | ((long)native[5] << 8) | native[4];
+
+		return DateTimeOffset.FromUnixTimeMilliseconds(unixMilliseconds).UtcDateTime;
+	}
 }
