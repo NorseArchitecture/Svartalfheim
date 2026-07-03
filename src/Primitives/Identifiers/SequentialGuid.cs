@@ -1,4 +1,5 @@
 using System.Data.SqlTypes;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
 namespace Norse.Primitives.Identifiers;
@@ -10,13 +11,16 @@ namespace Norse.Primitives.Identifiers;
 /// </summary>
 /// <remarks>
 /// See <see cref="SequentialGuidBytes"/> for the byte-level layout and the SQL Server shuffle contract.
-/// The public surface is deliberately narrow: no <see cref="object.ToString"/> override, no parsing.
-/// Comparison operators exist only to satisfy CA1036 alongside <see cref="IComparable{T}"/> — they defer
-/// to <see cref="CompareTo"/>, which follows the left-hand instance's own byte-order tag. Untrusted input
-/// always goes through <see cref="GuidParser"/>'s <see cref="Result{T}"/> gateway, never through this type
-/// directly — the only supported construction paths are "generate a new one" and "wrap a <see cref="Guid"/>
-/// this platform already produced."
+/// The public surface is deliberately narrow: no <see cref="object.ToString"/> override, no parsing, no
+/// comparison operators (see the design doc's trust-boundary rationale, §3.1) — <see cref="CompareTo"/>
+/// covers in-memory sorting and dictionary/EF-key use without widening the surface further. Untrusted
+/// input always goes through <see cref="GuidParser"/>'s <see cref="Result{T}"/> gateway, never through
+/// this type directly — the only supported construction paths are "generate a new one" and "wrap a
+/// <see cref="Guid"/> this platform already produced."
 /// </remarks>
+[SuppressMessage("Design", "CA1036:Override methods on comparable types",
+	Justification = "Deliberately narrow public surface (design doc §3.1): CompareTo covers in-memory " +
+		"sorting and EF-key comparisons; operator sugar is deferred until a concrete caller needs it.")]
 public readonly record struct SequentialGuid : INorseGuid, IComparable<SequentialGuid>, IEquatable<SequentialGuid>
 {
 	static int _counter = RandomNumberGenerator.GetInt32(0x200);
@@ -68,10 +72,10 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 		Order == GuidByteOrder.Rfc9562 ? this : new SequentialGuid(SequentialGuidBytes.ToRfcOrder(Value), GuidByteOrder.Rfc9562);
 
 	/// <summary>Implicitly unwraps to the underlying <see cref="Guid"/> (storage/wire representation).</summary>
+	[SuppressMessage("Usage", "CA2225:Operator overloads have named alternates",
+		Justification = "Deliberately narrow public surface (design doc §3.1): Value is already the " +
+			"named accessor for the wrapped Guid; a ToGuid() synonym would add a member with no new capability.")]
 	public static implicit operator Guid(SequentialGuid value) => value.Value;
-
-	/// <summary>Explicit alternate for the implicit <see cref="Guid"/> conversion (CA2225).</summary>
-	public Guid ToGuid() => Value;
 
 	/// <inheritdoc />
 	public bool Equals(SequentialGuid other) =>
@@ -92,16 +96,4 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 			? new SqlGuid(Value).CompareTo(new SqlGuid(normalizedOther.Value))
 			: Value.CompareTo(normalizedOther.Value);
 	}
-
-	/// <summary>Compares two values using the left-hand instance's byte-order tag (see <see cref="CompareTo"/>).</summary>
-	public static bool operator <(SequentialGuid left, SequentialGuid right) => left.CompareTo(right) < 0;
-
-	/// <summary>Compares two values using the left-hand instance's byte-order tag (see <see cref="CompareTo"/>).</summary>
-	public static bool operator <=(SequentialGuid left, SequentialGuid right) => left.CompareTo(right) <= 0;
-
-	/// <summary>Compares two values using the left-hand instance's byte-order tag (see <see cref="CompareTo"/>).</summary>
-	public static bool operator >(SequentialGuid left, SequentialGuid right) => left.CompareTo(right) > 0;
-
-	/// <summary>Compares two values using the left-hand instance's byte-order tag (see <see cref="CompareTo"/>).</summary>
-	public static bool operator >=(SequentialGuid left, SequentialGuid right) => left.CompareTo(right) >= 0;
 }
