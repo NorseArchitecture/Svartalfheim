@@ -62,12 +62,12 @@ public sealed class SequentialGuidBytesTests
 	void Should_round_trip_through_sql_order_and_back_for_many_generated_values()
 	{
 #pragma warning disable CA5394 // deterministic seed drives reproducible test data, not a security use
-		var random = new Random(1);
+		Random random = new(1);
 		for (var trial = 0; trial < 2000; trial++)
 		{
 			var unixMilliseconds = random.NextInt64(0, 0x0000_FFFF_FFFF_FFFF);
 			var counter = random.Next(0, 0x400_0000);
-			var entropy = new byte[6];
+			byte[] entropy = new byte[6];
 			random.NextBytes(entropy);
 #pragma warning restore CA5394
 
@@ -98,11 +98,11 @@ public sealed class SequentialGuidBytesTests
 		const long fixedMs = 1_800_000_000_000L;
 #pragma warning restore IDE1006
 #pragma warning disable CA5394 // deterministic seed drives reproducible test data, not a security use
-		var random = new Random(2);
-		var sequence = new List<(int Counter, SqlGuid Sql)>();
+		Random random = new(2);
+		List<(int Counter, SqlGuid Sql)> sequence = new();
 		for (var counter = 4090; counter <= 4100; counter++)
 		{
-			var entropy = new byte[6];
+			byte[] entropy = new byte[6];
 			random.NextBytes(entropy);
 #pragma warning restore CA5394
 			var rfcGuid = SequentialGuidBytes.GenerateRfc(fixedMs, counter, entropy);
@@ -123,14 +123,14 @@ public sealed class SequentialGuidBytesTests
 		const long fixedMs = 1_800_000_000_000L;
 #pragma warning restore IDE1006
 #pragma warning disable CA5394 // deterministic seed drives reproducible test data, not a security use
-		var random = new Random(3);
-		var sequence = new List<(int Index, SqlGuid Sql)>();
+		Random random = new(3);
+		List<(int Index, SqlGuid Sql)> sequence = new();
 		var index = 0;
 		for (var msOffset = 0; msOffset < 5; msOffset++)
 		{
 			for (var counter = 0; counter < 3; counter++)
 			{
-				var entropy = new byte[6];
+				byte[] entropy = new byte[6];
 				random.NextBytes(entropy);
 #pragma warning restore CA5394
 				var rfcGuid = SequentialGuidBytes.GenerateRfc(fixedMs + msOffset, counter, entropy);
