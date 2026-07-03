@@ -1,5 +1,6 @@
 using System.Globalization;
 using Norse.Primitives;
+using Norse.Primitives.Identifiers;
 
 var invariant = CultureInfo.InvariantCulture;
 var failures = 0;
@@ -66,6 +67,34 @@ Check("TemporalFusion fuses ISO date, time, and IANA zone to UTC", () =>
 		.TryGetValue(out Success<DateTime> fused)
 		&& fused.Value.Kind == DateTimeKind.Utc
 		&& fused.Value == new DateTime(2026, 6, 15, 15, 0, 0, DateTimeKind.Utc));
+
+Check("SequentialGuid generates a well-formed, current-time-stamped value", () =>
+{
+	var value = new SequentialGuid();
+	return value.Order == GuidByteOrder.Rfc9562 && value.Timestamp > DateTime.UtcNow.AddMinutes(-1);
+});
+
+Check("SequentialGuid round-trips through SQL Server byte order", () =>
+{
+	var original = new SequentialGuid();
+	return original.ToSqlOrder().ToRfcOrder() == original;
+});
+
+Check("SequentialGuid CompareTo respects SQL Server ordering when tagged SqlServer", () =>
+{
+	var first = new SequentialGuid();
+	var second = new SequentialGuid();
+	var firstSql = first.ToSqlOrder();
+	var secondSql = second.ToSqlOrder();
+	return firstSql.CompareTo(secondSql) == first.CompareTo(second);
+});
+
+Check("DeterministicGuid derives a stable value from namespace and name", () =>
+{
+	var first = new DeterministicGuid(DeterministicGuid.Namespaces.Dns, "example.com");
+	var second = new DeterministicGuid(DeterministicGuid.Namespaces.Dns, "example.com");
+	return first == second;
+});
 
 if (failures > 0)
 {
