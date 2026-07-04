@@ -3,6 +3,11 @@
 		<Description>Norse forward-only tabular ingestion: a canonical ITabularReader contract over Sep (delimited) and Sylvan.Data.Excel (single-sheet Excel), for turning untrusted source files into cell spans. Scalar-value conversion of those spans into typed values is Norse.Primitives' job, composed by the caller — this project carries no dependency on it.</Description>
 	</PropertyGroup>
 	<ItemGroup>
+		<!-- SepTabularReader/ExcelTabularReader are internal sealed per the tabular-ingestion design (reachable only
+		     through ITabularReader) - $(AssemblyName).Tests already has the sanctioned door via src/Directory.Build.props.
+		     The AOT smoke test (Task 3) is a second, concrete, justified caller that constructs them directly to prove
+		     Native AOT compatibility; it gets its own narrow door rather than widening the shared one. -->
+		<InternalsVisibleTo Include="Norse.Primitives.Ingestion.Aot.Smoke" />
 		<PackageReference Include="Sep" Version="*" />
 		<PackageReference Include="Sylvan.Data.Excel" Version="*" />
 	</ItemGroup>
