@@ -13,11 +13,14 @@
 	</Folder>
 	<Folder Name="/src/">
 		<Project Path="src/Primitives/Primitives.csproj" />
+		<Project Path="src/Primitives.Ingestion/Primitives.Ingestion.csproj" />
 	</Folder>
 	<Folder Name="/tests/">
 		<File Path="tests/Directory.Build.props" />
 		<File Path="tests/smoke/Directory.Build.props" />
 		<Project Path="tests/Primitives.Tests/Primitives.Tests.csproj" />
+		<Project Path="tests/Primitives.Ingestion.Tests/Primitives.Ingestion.Tests.csproj" />
 		<Project Path="tests/smoke/Primitives.Aot.Smoke/Primitives.Aot.Smoke.csproj" />
+		<Project Path="tests/smoke/Primitives.Ingestion.Aot.Smoke/Primitives.Ingestion.Aot.Smoke.csproj" />
 	</Folder>
 </Solution>
