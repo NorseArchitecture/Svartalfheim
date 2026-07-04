@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<Description>Norse forward-only tabular ingestion: a canonical ITabularReader contract over Sep (delimited) and Sylvan.Data.Excel (single-sheet Excel), for turning untrusted source files into cell spans. Scalar-value conversion of those spans into typed values is Norse.Primitives' job, composed by the caller — this project carries no dependency on it.</Description>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Sep" Version="*" />
+	</ItemGroup>
+</Project>
