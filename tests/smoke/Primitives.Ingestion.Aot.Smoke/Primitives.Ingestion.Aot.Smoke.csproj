@@ -2,8 +2,25 @@
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
 		<PublishAot>true</PublishAot>
+		<!--
+			IL2093 is an annotation mismatch between Sylvan.Data.Excel.ExcelDataReader.GetFieldType and the
+			DbDataReader.GetFieldType it overrides, inherent to Sylvan.Data.Excel 0.5.6 itself (ExcelTabularReader,
+			the type this smoke test proves out, never calls GetFieldType directly; the trimmer flags it anyway
+			because ExcelDataReader overrides a base virtual member). Not fixable by any consumer of that type.
+			Same class of justified suppression as the CA1036/CA2225 SuppressMessage attributes already on
+			SequentialGuid/DeterministicGuid: the analyzer's default posture conflicts with a deliberate,
+			documented exception, so it gets a narrow, cited suppression rather than silence.
+			$(NoWarn) is the only mechanism ILC (Native AOT) actually honors per code (Microsoft.NETCore.Native.targets
+			forwards it as an ILC nowarn argument); the ILLink.Suppressions.xml per-member suppression file mechanism
+			only applies to the separate illink/PublishTrimmed pipeline, not PublishAot/ILC, confirmed by inspecting
+			Microsoft.NETCore.Native.targets, which has no link attributes wiring at all for ILC.
+		-->
+		<NoWarn>$(NoWarn);IL2093</NoWarn>
 	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\src\Primitives.Ingestion\Primitives.Ingestion.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Include="Fixtures\smoke.xlsx" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 </Project>

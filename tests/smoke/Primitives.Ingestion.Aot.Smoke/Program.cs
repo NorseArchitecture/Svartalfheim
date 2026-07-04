@@ -1,6 +1,4 @@
-using System.Data;
 using Norse.Primitives.Ingestion;
-using Sylvan.Data.Excel;
 
 var failures = 0;
 var tempDir = Directory.CreateTempSubdirectory("norse-ingestion-smoke");
@@ -22,14 +20,13 @@ try
 	});
 #pragma warning restore CA1859
 
-	var xlsxPath = Path.Combine(tempDir.FullName, "smoke.xlsx");
-	using DataTable table = new();
-	table.Columns.Add("Name", typeof(string));
-	table.Columns.Add("Code", typeof(string));
-	table.Rows.Add("Nigeria", "566");
-	table.Rows.Add("Algeria", "012");
-	using (var excelWriter = ExcelDataWriter.Create(xlsxPath))
-		excelWriter.Write(table.CreateDataReader(), "Sheet1");
+	// Read from a checked-in fixture rather than synthesizing one at runtime via ExcelDataWriter:
+	// the writer path (Sylvan.Data.Excel.Xlsx.XlsxDataWriter.EnumFieldWriter) trips IL3050/IL2071
+	// under Native AOT trim analysis, and Norse.Primitives.Ingestion's shipped surface
+	// (ExcelTabularReader) never references Sylvan's writer at all - only the reader. Synthesizing
+	// the fixture at runtime was purely a smoke-test convenience, not something the library needs
+	// to prove. See Fixtures/smoke.xlsx (same Name/Code, Nigeria/566, Algeria/012 shape).
+	var xlsxPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "smoke.xlsx");
 
 #pragma warning disable CA1859 // see rationale above
 	Check("ExcelTabularReader reads a single sheet forward-only", () =>
