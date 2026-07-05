@@ -58,7 +58,9 @@ Svartalfheim is the forge: `Norse.Primitives`, the foundational primitives realm
 
 - **Project names are brand-free** (`src/Primitives/Primitives.csproj`); `Directory.Build.props` injects `AssemblyName`/`RootNamespace` as `Norse.$(MSBuildProjectName)`. The brand prefix lives in that one file so a fork rebrands without renaming a single project — build derivatives (`InternalsVisibleTo` via `$(AssemblyName)`) follow automatically; `namespace Norse.*` declarations in code stay until the fork deliberately culls them.
 
-Tabs (except YAML/MD per .editorconfig) · `var` for returns, explicit type + `new()` for construction · omit default accessibility modifiers · XML docs mandatory on all public src members (CS1591 is an error in src) · test naming `Should_{behavior}_when_{condition}`, test classes `public sealed`, test methods omit access modifiers · Shouldly/Xunit usings are global (injected via tests props — never add them per-file).
+Tabs (except YAML/MD per .editorconfig) · `var` for returns, explicit type + `new()` for construction · omit default accessibility modifiers · XML docs mandatory on all public src members (CS1591 is an error in src) · test classes `public sealed`, test methods omit access modifiers · Shouldly/Xunit usings are global (injected via tests props — never add them per-file).
+
+**Test naming — two accepted forms, chosen by what's under test:** `Should_{behavior}_when_{condition}` for scalar-parser tests (`Primitives.Tests` — a parse outcome is a behavior/condition pair, e.g. `Should_fail_with_malformed_reason_when_input_is_unrecognized`). `{Action}_{observed_behavior}` for forward-only cursor/reader tests (`Primitives.Ingestion.Tests` — e.g. `Read_throws_on_a_corrupt_workbook`), where the subject under test is a stateful sequence of operations rather than a single input→outcome pair and reads more clearly as a direct description than forced into `Should_when_`. Pick whichever form fits the project's existing files; don't mix both within one test class.
 
 ## Deferred Increments (pathway-proof spec §7 ledger — in rough order)
 
