@@ -1,8 +1,8 @@
-# Svartalfheim
+# Svartálfheim
 
 > Home of the dvergar, the master smiths who forged Mjölnir, Gleipnir, and Gungnir.
 
-![Svartalfheim — the underground realm of the dvergar, where the fires of the forge never die and the finest weapons in the nine realms are hammered into being](https://github.com/user-attachments/assets/bf97a1f1-3a7b-42d0-930d-6b8c6c3d4063 "Svartalfheim — home of the dvergar, master smiths of the nine realms")
+![Svartálfheim — the underground realm of the dvergar, where the fires of the forge never die and the finest weapons in the nine realms are hammered into being](https://github.com/user-attachments/assets/bf97a1f1-3a7b-42d0-930d-6b8c6c3d4063 "Svartálfheim — home of the dvergar, master smiths of the nine realms")
 
 *Image credit: [@norsemythologyclips](https://www.instagram.com/norsemythologyclips/) — go follow them.*
 
@@ -15,6 +15,8 @@ The forge of the Norse Architecture — **`Norse.Primitives`**, the foundational
 - **`Parser`** — the generic gateway over `ISpanParsable<T>`: span in, `Result<T>` out, uniform failure semantics, required format provider. Specialists ride JIT-eliminated `typeof` routes; there is no runtime registry — a type that cannot parse does not compile.
 - **Hot-path parsers** — static specialists with `ParseRequired` / `ParseOptional` entry points over `ReadOnlySpan<char>` and honest signatures: `BooleanParser`, the generic-math numeric cores `IntegerParser` (`IBinaryInteger<T>`) and `RealParser` (`IFloatingPoint<T>` — `float`/`double`/`decimal`, finite values only), `CharParser`, `GuidParser`, and the temporal family `DateOnlyParser` / `TimeOnlyParser` / `DateTimeOffsetParser` / `DateTimeParser` / `TimeSpanParser`. They carry the real ingestion vocabulary (grouping, currency, parentheses, hex/binary, percentage, code points, URN prefixes, ISO 8601 temporal representations) the bare BCL `TryParse` lacks. Ambiguous input fails loudly; nothing is guessed, nothing falls back silently.
 - **`TemporalFusion`** — three spans in (ISO 8601 date, ISO 8601 time, IANA zone id), one UTC `DateTime` out. `TimeZoneParser` is its companion, resolving IANA zone identifiers to `TimeZoneInfo`. Both DST seams are hard failures: a spring-forward gap is `Malformed` with detail `"DST gap"`; a fall-back ambiguity is `Malformed` with detail `"DST ambiguous"`. The BCL's silent standard-time pick never occurs.
+- **`Identifiers`** (`Primitives/Identifiers`) — `SequentialGuid` and `DeterministicGuid`: time-ordered and content-addressed GUID generation (`GuidVersionBits`, `GuidByteOrder`, `INorseGuid`), landed 2026-07-03.
+- **`Primitives.Ingestion`** — `ITabularReader`/`SepTabularReader`/`ExcelTabularReader`: the tabular-reader abstraction Mímisbrunnr's `SeedTool` consumes to convert raw CSV/Excel sources into committed TSV seed data.
 
 Scalar → domain conversion only: application error categories and transport conditions belong to other realms by design.
 
@@ -35,8 +37,8 @@ Project folders and `.csproj` files are brand-free (`src/Primitives/Primitives.c
 
 ## The cosmos
 
-Svartalfheim is one realm of the [Norse Architecture](https://github.com/NorseArchitecture). The whole platform composes at [Bifröst](https://github.com/NorseArchitecture/Bifrost) — clone once, cross the bridge. Every design is tried in [Glitnir](https://github.com/NorseArchitecture/Glitnir), the design court, before code is forged here; this realm's specs and plans live in the court's [docs/Svartalfheim/](https://github.com/NorseArchitecture/Glitnir/tree/master/docs/Svartalfheim).
+Svartálfheim is one realm of the [Norse Architecture](https://github.com/NorseArchitecture). The whole platform composes at [Bifröst](https://github.com/NorseArchitecture/Bifrost) — clone once, cross the bridge. Every design is tried in [Glitnir](https://github.com/NorseArchitecture/Glitnir), the design court, before code is forged here; this realm's specs and plans live in the court's [docs/Svartálfheim/](https://github.com/NorseArchitecture/Glitnir/tree/master/docs/Svartalfheim).
 
-## Soundtrack: Svartalfheim | God of War Ragnarök (Original Soundtrack)
-[![Soundtrack: Svartalfheim | God of War Ragnarök (Original Soundtrack)](https://img.youtube.com/vi/BCk4E0me2GE/maxresdefault.jpg)](https://www.youtube.com/watch?v=BCk4E0me2GE)
+## Soundtrack: Svartálfheim | God of War Ragnarök (Original Soundtrack)
+[![Soundtrack: Svartálfheim | God of War Ragnarök (Original Soundtrack)](https://img.youtube.com/vi/BCk4E0me2GE/maxresdefault.jpg)](https://www.youtube.com/watch?v=BCk4E0me2GE)
 

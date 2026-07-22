@@ -1,26 +1,18 @@
-# CLAUDE.md — Svartalfheim (`Norse.Primitives`)
+# CLAUDE.md — Svartálfheim (`Norse.Primitives`)
 
 ## 0. Wrong Root — Halt
 
-If you are reading this because **Svartalfheim itself is the Claude Code session root** — someone ran `claude` from inside this directory instead of `../Bifrost` — stop here. Do not read further, do not propose changes, do not run anything.
+Session root must be **Bifröst**, not this repo directly — org-wide settings (`superpowers`, permission rules) only apply from the actual root, and Claude Code never merges a submodule's own `.claude/settings.json` into a parent-launched session. If `claude` was run from inside **Svartálfheim**, stop: don't read further, don't propose changes, don't run anything — tell the user to `cd ../Bifrost` and start there. (This repo's `.claude/settings.json` carries a `SessionStart` hook meant to block this before you ever see this file; if you're reading this anyway, the hook was bypassed, disabled, or failed — halt regardless.)
 
-Tell the user: every Norse Architecture session starts from **Bifrost**. Org-wide settings (the `superpowers` plugin, permission rules) only apply when Bifrost is the actual session root — Claude Code never merges a submodule's own `.claude/settings.json` into a parent-launched session. Exit, `cd ../Bifrost`, and run `claude` there instead.
+> **Do not commit, push, or rewrite git history** — stage (`git add`), show the diff, stop; the human reviews in GitHub Desktop and commits. This applies even when a skill's flow includes a commit step. **US English spelling** everywhere — code, comments, docs, commits.
 
-This repo's own `.claude/settings.json` carries a `SessionStart` hook that should already have blocked this session before this file was ever read. If you're reading this anyway, hooks were bypassed, disabled, or failed — halt regardless; this rule does not depend on the hook to hold.
-
----
-
-> **Do not commit, push, or rewrite git history.** Stage your edits (`git add`), show the diff, and stop — the human reviews in GitHub Desktop and commits. This applies even when a skill's flow includes a commit step.
-
-> **Use US English spelling** in code, identifiers, comments, docs, and commit/PR copy.
-
-Svartalfheim is the forge: `Norse.Primitives`, the foundational primitives realm of the Norse platform. Everything crossing a trust boundary into the ecosystem from untrusted sources flows through the types here — `Result<T>`, its case types, and the hot-path scalar parsers. Scalar→domain conversion only; application error categories (validation/not-found/conflict) belong to the mediator, transport conditions to the host pipeline.
+Svartálfheim is the forge: `Norse.Primitives`, the foundational primitives realm of the Norse platform. Everything crossing a trust boundary into the ecosystem from untrusted sources flows through the types here — `Result<T>`, its case types, and the hot-path scalar parsers. Scalar→domain conversion only; application error categories (validation/not-found/conflict) belong to the mediator, transport conditions to the host pipeline. Two sibling capabilities live in this realm too: `Primitives/Identifiers` (`SequentialGuid`/`DeterministicGuid`, time-ordered and content-addressed GUID generation — `../Glitnir/docs/Svartalfheim/specs/2026-07-03-svartalfheim-identifiers-design.md`) and `Primitives.Ingestion` (`ITabularReader`/`SepTabularReader`/`ExcelTabularReader`, the tabular-reader abstraction Mímisbrunnr's seed tooling consumes).
 
 **Authoritative documents (read in this order):**
 1. `../Glitnir/docs/Svartalfheim/specs/2026-06-17-svartalfheim-numeric-char-guid-parsers-design.md` — the third-increment spec (numeric family, `char`, `Guid` — two generic-math cores `IntegerParser`/`RealParser` plus `CharParser`/`GuidParser`, all routed through the gateway). Its execution plan sits beside it under `plans/`; §9 carries the temporal-parser ledger forward (the next increment).
 2. `../Glitnir/docs/Svartalfheim/specs/2026-06-11-svartalfheim-pathway-proof-design.md` — the second-increment spec (gateway, combinators, evidence rigs), amended with benchmark findings (§8). (Its execution plan sits beside it under `plans/`.)
 3. `../Glitnir/docs/Svartalfheim/specs/2026-06-11-svartalfheim-result-union-boolean-parser-design.md` — the first-increment spec, amended with implementation findings. The amendments ARE the record; trust them over the parent spec where they differ. (Its execution plan sits beside it under `plans/`.)
-4. Parent spec: `../Glitnir/docs/Svartalfheim/specs/2026-05-20-svartalfheim-primitives-design.md` (Glitnir is the design court — all specs, plans, and PoC verdicts live there; it sits beside this realm as a sibling submodule on the Bifrost bridge).
+4. Parent spec: `../Glitnir/docs/Svartalfheim/specs/2026-05-20-svartalfheim-primitives-design.md` (Glitnir is the design court — all specs, plans, and PoC verdicts live there; it sits beside this realm as a sibling submodule on the Bifröst bridge).
 5. Prior-art lessons: the Crucible — the pre-union `Result<T>`, parser vocabulary, and test matrices this repo learned from. Private prior art; it lives outside this workspace by design and is cited by name, never by path.
 
 ---
@@ -64,7 +56,7 @@ Tabs (except YAML/MD per .editorconfig) · `var` for returns, explicit type + `n
 
 ## Deferred Increments (pathway-proof spec §7 ledger — in rough order)
 
-Five increments are landed: (1) `Result<T>` + `BooleanParser`; (2) gateway + combinators; (3) numeric family, `char`, `Guid`; (4) temporal parsers (`DateOnly`/`TimeOnly`/`DateTimeOffset`/`DateTime`/`TimeSpan`); (5) `TimeZoneParser` + `TemporalFusion` (DST-safe fusion of ISO date + ISO time + IANA zone → UTC `DateTime`). Remaining deferred items:
+Six increments are landed: (1) `Result<T>` + `BooleanParser`; (2) gateway + combinators; (3) numeric family, `char`, `Guid`; (4) temporal parsers (`DateOnly`/`TimeOnly`/`DateTimeOffset`/`DateTime`/`TimeSpan`); (5) `TimeZoneParser` + `TemporalFusion` (DST-safe fusion of ISO date + ISO time + IANA zone → UTC `DateTime`); (6) `Identifiers` (`SequentialGuid`, `DeterministicGuid`, `GuidVersionBits`/`GuidByteOrder`, `INorseGuid` — `../Glitnir/docs/Svartalfheim/specs/2026-07-03-svartalfheim-identifiers-design.md`). Remaining deferred items:
 
 1. **`Combine`, async combinator siblings, `*Present` variants** — carry-forward from the pathway ledger; the fusion consumer proved fusion-with-a-failing-combiner is not `Combine`, so the deferral stands awaiting its own consumer. Spec: `../Glitnir/docs/Svartalfheim/specs/2026-06-11-svartalfheim-pathway-proof-design.md` §7.
 2. **Caller-declared DST resolution door** (`Earliest`/`Latest`/`Reject`) — `TemporalFusion` off-default door for callers that legitimately resolve an ambiguous wall-clock by policy rather than re-prompt. Spec: `../Glitnir/docs/Svartalfheim/specs/2026-06-17-svartalfheim-temporal-fusion-design.md` §11.
