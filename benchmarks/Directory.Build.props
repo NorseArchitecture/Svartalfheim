@@ -11,6 +11,6 @@
 		<OutputType>Exe</OutputType>
 	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="BenchmarkDotNet" Version="0.*" />
+		<PackageReference Include="BenchmarkDotNet" Version="*" />
 	</ItemGroup>
 </Project>
