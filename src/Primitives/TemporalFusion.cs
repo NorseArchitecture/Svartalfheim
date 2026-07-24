@@ -47,11 +47,13 @@ public static class TemporalFusion
 	{
 		var dateTrimmed = date.Trim();
 		var timeTrimmed = time.Trim();
-		if (dateTrimmed.IsEmpty && timeTrimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		if (dateTrimmed.IsEmpty || timeTrimmed.IsEmpty)
-			return new Failure(ParseFailure.Malformed, dateTrimmed.IsEmpty ? timeTrimmed : dateTrimmed, ExpectedType, null, "partial instant");
-		return Fuse(date, time, zone);
+		return dateTrimmed.IsEmpty && timeTrimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			dateTrimmed.IsEmpty || timeTrimmed.IsEmpty ?
+				new Failure(ParseFailure.Malformed, dateTrimmed.IsEmpty ? timeTrimmed : dateTrimmed, ExpectedType,
+					null,
+					"partial instant") :
+				Fuse(date, time, zone);
 	}
 
 	/// <summary>
@@ -69,11 +71,13 @@ public static class TemporalFusion
 	{
 		var dateTrimmed = date.Trim();
 		var timeTrimmed = time.Trim();
-		if (dateTrimmed.IsEmpty && timeTrimmed.IsEmpty)
-			return null;
-		if (dateTrimmed.IsEmpty || timeTrimmed.IsEmpty)
-			return new Failure(ParseFailure.Malformed, dateTrimmed.IsEmpty ? timeTrimmed : dateTrimmed, ExpectedType, null, "partial instant");
-		return Fuse(date, time, zone);
+		return dateTrimmed.IsEmpty && timeTrimmed.IsEmpty ?
+			null :
+			dateTrimmed.IsEmpty || timeTrimmed.IsEmpty ?
+				new Failure(ParseFailure.Malformed, dateTrimmed.IsEmpty ? timeTrimmed : dateTrimmed, ExpectedType,
+					null,
+					"partial instant") :
+				Fuse(date, time, zone);
 	}
 
 	static Result<DateTime> Fuse(ReadOnlySpan<char> date, ReadOnlySpan<char> time, ReadOnlySpan<char> zone)
@@ -91,12 +95,10 @@ public static class TemporalFusion
 			return timeFailure;
 		}
 		var zoneResult = TimeZoneParser.ParseRequired(zone);
-		if (!zoneResult.TryGetValue(out Success<TimeZoneInfo> zoneSuccess))
-		{
-			zoneResult.TryGetValue(out Failure zoneFailure);
-			return zoneFailure;
-		}
-		return ConvertToUtc(dateSuccess.Value, timeSuccess.Value, zoneSuccess.Value);
+		if (zoneResult.TryGetValue(out Success<TimeZoneInfo> zoneSuccess))
+			return ConvertToUtc(dateSuccess.Value, timeSuccess.Value, zoneSuccess.Value);
+		zoneResult.TryGetValue(out Failure zoneFailure);
+		return zoneFailure;
 	}
 
 	static Result<DateTime> ConvertToUtc(DateOnly date, TimeOnly time, TimeZoneInfo zone)
@@ -108,8 +110,8 @@ public static class TemporalFusion
 		if (zone.IsAmbiguousTime(wall))
 			return new Failure(ParseFailure.Malformed, compositeInput, ExpectedType, null, "DST ambiguous");
 		var utc = TimeZoneInfo.ConvertTimeToUtc(wall, zone);
-		if (utc == DateTime.MinValue || utc == DateTime.MaxValue)
-			return new Failure(ParseFailure.Malformed, compositeInput, ExpectedType);
-		return new Success<DateTime>(utc);
+		return utc == DateTime.MinValue || utc == DateTime.MaxValue ?
+			new Failure(ParseFailure.Malformed, compositeInput, ExpectedType) :
+			new Success<DateTime>(utc);
 	}
 }

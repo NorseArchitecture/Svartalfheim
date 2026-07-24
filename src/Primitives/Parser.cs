@@ -48,7 +48,7 @@ public static class Parser
 	/// <returns>The parse outcome — never throws on bad input.</returns>
 	/// <exception cref="ArgumentNullException"><paramref name="provider"/> is null.</exception>
 	public static Result<T> ParseRequired<T>(ReadOnlySpan<char> input, IFormatProvider provider)
-		where T : notnull, ISpanParsable<T>
+		where T : ISpanParsable<T>
 	{
 		ArgumentNullException.ThrowIfNull(provider);
 		if (typeof(T) == typeof(bool))
@@ -149,9 +149,9 @@ public static class Parser
 			return Unsafe.As<Result<TimeSpan>, Result<T>>(ref routed);
 		}
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, typeof(T).Name);
-		return Parse<T>(trimmed, provider);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, typeof(T).Name) :
+			Parse<T>(trimmed, provider);
 	}
 
 	/// <summary>
@@ -164,7 +164,7 @@ public static class Parser
 	/// <returns><see langword="null"/> when absent; otherwise the parse outcome.</returns>
 	/// <exception cref="ArgumentNullException"><paramref name="provider"/> is null.</exception>
 	public static Result<T>? ParseOptional<T>(ReadOnlySpan<char> input, IFormatProvider provider)
-		where T : notnull, ISpanParsable<T>
+		where T : ISpanParsable<T>
 	{
 		ArgumentNullException.ThrowIfNull(provider);
 		if (typeof(T) == typeof(bool))
@@ -270,10 +270,8 @@ public static class Parser
 	}
 
 	static Result<T> Parse<T>(ReadOnlySpan<char> trimmed, IFormatProvider provider)
-		where T : notnull, ISpanParsable<T>
-	{
-		if (T.TryParse(trimmed, provider, out var value))
-			return new Success<T>(value);
-		return new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
-	}
+		where T : ISpanParsable<T> =>
+		T.TryParse(trimmed, provider, out var value) ?
+			new Success<T>(value) :
+			new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
 }

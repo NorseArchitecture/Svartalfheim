@@ -19,9 +19,9 @@ namespace Norse.Primitives.Identifiers;
 /// <see cref="Guid"/> this platform already produced."
 /// </remarks>
 [SuppressMessage("Design", "CA1036:Override methods on comparable types",
-	Justification = "Deliberately narrow public surface (design doc §3.1): CompareTo covers in-memory " +
-		"sorting and EF-key comparisons; operator sugar is deferred until a concrete caller needs it.")]
-public readonly record struct SequentialGuid : INorseGuid, IComparable<SequentialGuid>, IEquatable<SequentialGuid>
+	Justification =
+		"Deliberately narrow public surface (design doc §3.1): CompareTo covers in-memory sorting and EF-key comparisons; operator sugar is deferred until a concrete caller needs it.")]
+public readonly record struct SequentialGuid : INorseGuid, IComparable<SequentialGuid>
 {
 	static int _counter = RandomNumberGenerator.GetInt32(0x200);
 
@@ -54,7 +54,8 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 	public SequentialGuid(Guid value, GuidByteOrder order)
 	{
 		if (order == GuidByteOrder.Unspecified)
-			throw new ArgumentOutOfRangeException(nameof(order), order, "GuidByteOrder.Unspecified is never a valid argument.");
+			throw new ArgumentOutOfRangeException(nameof(order), order,
+				"GuidByteOrder.Unspecified is never a valid argument.");
 		if (!GuidVersionBits.HasVersionAndVariant(value, 7))
 			throw new ArgumentException("Value must be a version 7 UUID with RFC 9562 variant bits.", nameof(value));
 
@@ -65,17 +66,18 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 
 	/// <summary>Returns this value converted to <see cref="GuidByteOrder.SqlServer"/> order (a no-op if already there).</summary>
 	public SequentialGuid ToSqlOrder() =>
-		Order == GuidByteOrder.SqlServer ? this : new SequentialGuid(SequentialGuidBytes.ToSqlOrder(Value), GuidByteOrder.SqlServer);
+		Order == GuidByteOrder.SqlServer ? this : new(SequentialGuidBytes.ToSqlOrder(Value), GuidByteOrder.SqlServer);
 
 	/// <summary>Returns this value converted to <see cref="GuidByteOrder.Rfc9562"/> order (a no-op if already there).</summary>
 	public SequentialGuid ToRfcOrder() =>
-		Order == GuidByteOrder.Rfc9562 ? this : new SequentialGuid(SequentialGuidBytes.ToRfcOrder(Value), GuidByteOrder.Rfc9562);
+		Order == GuidByteOrder.Rfc9562 ? this : new(SequentialGuidBytes.ToRfcOrder(Value), GuidByteOrder.Rfc9562);
 
 	/// <summary>Implicitly unwraps to the underlying <see cref="Guid"/> (storage/wire representation).</summary>
 	[SuppressMessage("Usage", "CA2225:Operator overloads have named alternates",
-		Justification = "Deliberately narrow public surface (design doc §3.1): Value is already the " +
-			"named accessor for the wrapped Guid; a ToGuid() synonym would add a member with no new capability.")]
-	public static implicit operator Guid(SequentialGuid value) => value.Value;
+		Justification =
+			"Deliberately narrow public surface (design doc §3.1): Value is already the named accessor for the wrapped Guid; a ToGuid() synonym would add a member with no new capability.")]
+	public static implicit operator Guid(SequentialGuid value) =>
+		value.Value;
 
 	/// <inheritdoc />
 	public bool Equals(SequentialGuid other) =>
@@ -88,12 +90,12 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 	/// <inheritdoc />
 	public int CompareTo(SequentialGuid other)
 	{
-		var normalizedOther = other.Order == Order
-			? other
-			: Order == GuidByteOrder.SqlServer ? other.ToSqlOrder() : other.ToRfcOrder();
+		var normalizedOther = other.Order == Order ? other :
+			Order == GuidByteOrder.SqlServer ? other.ToSqlOrder() :
+			other.ToRfcOrder();
 
 		return Order == GuidByteOrder.SqlServer
-			? new SqlGuid(Value).CompareTo(new SqlGuid(normalizedOther.Value))
+			? new SqlGuid(Value).CompareTo(new(normalizedOther.Value))
 			: Value.CompareTo(normalizedOther.Value);
 	}
 
@@ -128,11 +130,14 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 	/// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative or exceeds the 26-bit counter space.</exception>
 	public static SequentialGuid[] CreateMany(int count)
 	{
-		if (count is < 0 or > 0x400_0000)
-			throw new ArgumentOutOfRangeException(nameof(count),
-				"Count must be between 0 and the 26-bit counter space (67,108,864).");
-		if (count == 0)
-			return [];
+		switch (count)
+		{
+			case < 0 or > 0x400_0000:
+				throw new ArgumentOutOfRangeException(nameof(count),
+					"Count must be between 0 and the 26-bit counter space (67,108,864).");
+			case 0:
+				return [];
+		}
 
 		var result = new SequentialGuid[count];
 		Fill(result);

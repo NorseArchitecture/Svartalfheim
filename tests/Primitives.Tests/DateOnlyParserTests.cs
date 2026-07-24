@@ -16,7 +16,7 @@ public sealed class DateOnlyParserTests
 	{
 		var actual = DateOnlyParser.ParseRequired(input);
 		actual.TryGetValue(out Success<DateOnly> success).ShouldBeTrue();
-		success.Value.ShouldBe(new DateOnly(2026, 1, 2));
+		success.Value.ShouldBe(new(2026, 1, 2));
 	}
 
 	[Theory]
@@ -47,10 +47,10 @@ public sealed class DateOnlyParserTests
 	{
 		DateOnlyParser.ParseExactRequired("1/2/2026", "M/d/yyyy", _enUs)
 			.TryGetValue(out Success<DateOnly> us).ShouldBeTrue();
-		us.Value.ShouldBe(new DateOnly(2026, 1, 2));
+		us.Value.ShouldBe(new(2026, 1, 2));
 		DateOnlyParser.ParseExactRequired("1/2/2026", "d/M/yyyy", _enGb)
 			.TryGetValue(out Success<DateOnly> gb).ShouldBeTrue();
-		gb.Value.ShouldBe(new DateOnly(2026, 2, 1));
+		gb.Value.ShouldBe(new(2026, 2, 1));
 	}
 
 	[Fact]
@@ -88,7 +88,7 @@ public sealed class DateOnlyParserTests
 		var actual = DateOnlyParser.ParseOptional("2026-01-02");
 		actual.HasValue.ShouldBeTrue();
 		actual.Value.TryGetValue(out Success<DateOnly> success).ShouldBeTrue();
-		success.Value.ShouldBe(new DateOnly(2026, 1, 2));
+		success.Value.ShouldBe(new(2026, 1, 2));
 	}
 
 	[Fact]

@@ -16,7 +16,7 @@ public sealed class TimeOnlyParserTests
 	{
 		var actual = TimeOnlyParser.ParseRequired(input);
 		actual.TryGetValue(out Success<TimeOnly> success).ShouldBeTrue();
-		success.Value.ShouldBe(new TimeOnly(h, m, s, ms));
+		success.Value.ShouldBe(new(h, m, s, ms));
 	}
 
 	[Fact]
@@ -46,7 +46,7 @@ public sealed class TimeOnlyParserTests
 	{
 		TimeOnlyParser.ParseExactRequired("3:04:05 PM", "h:mm:ss tt", _invariant)
 			.TryGetValue(out Success<TimeOnly> success).ShouldBeTrue();
-		success.Value.ShouldBe(new TimeOnly(15, 4, 5));
+		success.Value.ShouldBe(new(15, 4, 5));
 	}
 
 	[Theory]

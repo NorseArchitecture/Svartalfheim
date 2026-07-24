@@ -5,7 +5,7 @@ namespace Norse.Primitives;
 /// Adding a member is a deliberate breaking change: every exhaustive switch
 /// over this enum becomes a build error until updated.
 /// </summary>
-public enum ParseFailure
+public enum ParseFailure : byte
 {
 	/// <summary>Sentinel CLR default — never produced by any parse path.</summary>
 	Unspecified = 0,
@@ -14,5 +14,5 @@ public enum ParseFailure
 	Empty = 1,
 
 	/// <summary>Input was present but not recognizable as the target type.</summary>
-	Malformed = 2,
+	Malformed = 2
 }

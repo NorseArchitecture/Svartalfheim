@@ -11,6 +11,7 @@ public sealed class TabularReaderTests
 		var path = WriteTempFile("Name,Code\nNigeria,566\nAlgeria,012\n");
 		try
 		{
+			// ReSharper disable once SuggestVarOrType_SimpleTypes
 			using ITabularReader reader = TabularReader.OpenDelimited(path, ',');
 
 			reader.FieldCount.ShouldBe(2);
@@ -36,6 +37,7 @@ public sealed class TabularReaderTests
 		var path = WriteTempWorkbook();
 		try
 		{
+			// ReSharper disable once SuggestVarOrType_SimpleTypes
 			using ITabularReader reader = TabularReader.OpenExcelWorksheet(path);
 
 			reader.FieldCount.ShouldBe(2);

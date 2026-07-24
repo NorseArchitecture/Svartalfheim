@@ -6,9 +6,10 @@ public sealed class IntegerParserTests
 {
 	const string AllWhitespace = " \t\r\n\f ";
 
-	static readonly IFormatProvider _invariant = CultureInfo.InvariantCulture;
-	static readonly IFormatProvider _enUs = CultureInfo.GetCultureInfo("en-US");
-	static readonly IFormatProvider _deDe = CultureInfo.GetCultureInfo("de-DE");
+	static readonly IFormatProvider
+		_invariant = CultureInfo.InvariantCulture,
+		_enUs = CultureInfo.GetCultureInfo("en-US"),
+		_deDe = CultureInfo.GetCultureInfo("de-DE");
 
 	[Theory]
 	[InlineData("42", 42)]

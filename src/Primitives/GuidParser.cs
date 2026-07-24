@@ -22,9 +22,9 @@ public static class GuidParser
 	public static Result<Guid> ParseRequired(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return Parse(trimmed);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			Parse(trimmed);
 	}
 
 	/// <summary>
@@ -36,17 +36,15 @@ public static class GuidParser
 	public static Result<Guid>? ParseOptional(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return Parse(trimmed);
+		return trimmed.IsEmpty ?
+			null :
+			Parse(trimmed);
 	}
 
-	static Result<Guid> Parse(ReadOnlySpan<char> trimmed)
-	{
-		if (Guid.TryParse(StripPrefix(trimmed), out var value))
-			return new Success<Guid>(value);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType);
-	}
+	static Result<Guid> Parse(ReadOnlySpan<char> trimmed) =>
+		Guid.TryParse(StripPrefix(trimmed), out var value) ?
+			new Success<Guid>(value) :
+			new Failure(ParseFailure.Malformed, trimmed, ExpectedType);
 
 	static ReadOnlySpan<char> StripPrefix(ReadOnlySpan<char> trimmed)
 	{

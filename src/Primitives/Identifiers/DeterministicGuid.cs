@@ -18,7 +18,7 @@ namespace Norse.Primitives.Identifiers;
 [SuppressMessage("Design", "CA1036:Override methods on comparable types",
 	Justification = "Deliberately narrow public surface (design doc §3.1): CompareTo covers in-memory " +
 		"sorting and EF-key comparisons; operator sugar is deferred until a concrete caller needs it.")]
-public readonly record struct DeterministicGuid : INorseGuid, IComparable<DeterministicGuid>, IEquatable<DeterministicGuid>
+public readonly record struct DeterministicGuid : INorseGuid, IComparable<DeterministicGuid>
 {
 	const int StackThreshold = 256;
 
@@ -99,14 +99,18 @@ public readonly record struct DeterministicGuid : INorseGuid, IComparable<Determ
 	[SuppressMessage("Usage", "CA2225:Operator overloads have named alternates",
 		Justification = "Deliberately narrow public surface (design doc §3.1): Value is already the " +
 			"named accessor for the wrapped Guid; a ToGuid() synonym would add a member with no new capability.")]
-	public static implicit operator Guid(DeterministicGuid value) => value.Value;
+	public static implicit operator Guid(DeterministicGuid value) =>
+		value.Value;
 
 	/// <inheritdoc />
-	public bool Equals(DeterministicGuid other) => Value.Equals(other.Value);
+	public bool Equals(DeterministicGuid other) =>
+		Value.Equals(other.Value);
 
 	/// <inheritdoc />
-	public override int GetHashCode() => Value.GetHashCode();
+	public override int GetHashCode() =>
+		Value.GetHashCode();
 
 	/// <inheritdoc />
-	public int CompareTo(DeterministicGuid other) => Value.CompareTo(other.Value);
+	public int CompareTo(DeterministicGuid other) =>
+		Value.CompareTo(other.Value);
 }

@@ -24,8 +24,8 @@ public sealed class TimeSpanParserTests
 	{
 		TimeSpanParser.ParseRequired("01:30:00").TryGetValue(out Success<TimeSpan> colon).ShouldBeTrue();
 		TimeSpanParser.ParseRequired("PT1H30M").TryGetValue(out Success<TimeSpan> iso).ShouldBeTrue();
-		colon.Value.ShouldBe(new TimeSpan(1, 30, 0));
-		iso.Value.ShouldBe(new TimeSpan(1, 30, 0));
+		colon.Value.ShouldBe(new(1, 30, 0));
+		iso.Value.ShouldBe(new(1, 30, 0));
 	}
 
 	[Fact]
@@ -78,7 +78,7 @@ public sealed class TimeSpanParserTests
 	{
 		TimeSpanParser.ParseExactRequired("01:30", @"hh\:mm", _invariant)
 			.TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
-		success.Value.ShouldBe(new TimeSpan(1, 30, 0));
+		success.Value.ShouldBe(new(1, 30, 0));
 	}
 
 	[Theory]

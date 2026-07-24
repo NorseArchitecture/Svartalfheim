@@ -12,13 +12,15 @@ namespace Norse.Primitives;
 /// </summary>
 public static class DateTimeOffsetParser
 {
-	const string ExpectedType = nameof(DateTimeOffset);
-	const string IsoLabel = "ISO 8601";
+	const string
+		ExpectedType = nameof(DateTimeOffset),
+		IsoLabel = "ISO 8601";
 
-	const long MinUnixSeconds = -62135596800L;
-	const long MaxUnixSeconds = 253402300799L;
-	const long MinUnixMilliseconds = -62135596800000L;
-	const long MaxUnixMilliseconds = 253402300799999L;
+	const long
+		MinUnixSeconds = -62135596800L,
+		MaxUnixSeconds = 253402300799L,
+		MinUnixMilliseconds = -62135596800000L,
+		MaxUnixMilliseconds = 253402300799999L;
 
 	static readonly string[] _isoFormats =
 	[
@@ -28,8 +30,9 @@ public static class DateTimeOffsetParser
 		"yyyy-MM-ddTHH:mm:sszzz",
 	];
 
-	const DateTimeStyles IsoStyles = DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal;
-	const DateTimeStyles ExactStyles = IsoStyles | DateTimeStyles.AllowWhiteSpaces;
+	const DateTimeStyles
+		IsoStyles = DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+		ExactStyles = IsoStyles | DateTimeStyles.AllowWhiteSpaces;
 
 	/// <summary>Parses an ISO datetime with a mandatory zone, normalized to UTC. Empty ⇒ <see cref="ParseFailure.Empty"/>; unrecognized, zone-less, or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
 	/// <param name="input">The raw scalar text. A null string converts to the empty span.</param>
@@ -37,9 +40,9 @@ public static class DateTimeOffsetParser
 	public static Result<DateTimeOffset> ParseRequired(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseIso(trimmed);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseIso(trimmed);
 	}
 
 	/// <summary>Parses an optional ISO datetime. Empty ⇒ absent; unrecognized, zone-less, or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
@@ -48,9 +51,9 @@ public static class DateTimeOffsetParser
 	public static Result<DateTimeOffset>? ParseOptional(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseIso(trimmed);
+		return trimmed.IsEmpty ?
+			null :
+			ParseIso(trimmed);
 	}
 
 	/// <summary>Parses a datetime against a single caller-declared <paramref name="format"/>, resolving to UTC (never local).</summary>
@@ -65,9 +68,9 @@ public static class DateTimeOffsetParser
 		ArgumentException.ThrowIfNullOrEmpty(format);
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseExact(trimmed, format, provider);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseExact(trimmed, format, provider);
 	}
 
 	/// <summary>Parses an optional datetime against a single caller-declared <paramref name="format"/>.</summary>
@@ -82,9 +85,9 @@ public static class DateTimeOffsetParser
 		ArgumentException.ThrowIfNullOrEmpty(format);
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseExact(trimmed, format, provider);
+		return trimmed.IsEmpty ?
+			null :
+			ParseExact(trimmed, format, provider);
 	}
 
 	/// <summary>Parses a declared Unix epoch (integer; negatives allowed). Empty ⇒ <see cref="ParseFailure.Empty"/>; non-integer, out-of-range, or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
@@ -96,9 +99,9 @@ public static class DateTimeOffsetParser
 	{
 		GuardPrecision(precision);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseUnixCore(trimmed, precision);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseUnixCore(trimmed, precision);
 	}
 
 	/// <summary>Parses an optional declared Unix epoch. Empty ⇒ absent; non-integer, out-of-range, or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
@@ -110,44 +113,40 @@ public static class DateTimeOffsetParser
 	{
 		GuardPrecision(precision);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseUnixCore(trimmed, precision);
+		return trimmed.IsEmpty ?
+			null :
+			ParseUnixCore(trimmed, precision);
 	}
 
-	static Result<DateTimeOffset> ParseIso(ReadOnlySpan<char> trimmed)
-	{
-		if (DateTimeOffset.TryParseExact(trimmed, _isoFormats, CultureInfo.InvariantCulture, IsoStyles, out var value)
-			&& !IsSentinel(value))
-			return new Success<DateTimeOffset>(value);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
-	}
+	static Result<DateTimeOffset> ParseIso(ReadOnlySpan<char> trimmed) =>
+		DateTimeOffset.TryParseExact(trimmed, _isoFormats, CultureInfo.InvariantCulture, IsoStyles, out var value) &&
+		!IsSentinel(value) ?
+			new Success<DateTimeOffset>(value) :
+			new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
 
-	static Result<DateTimeOffset> ParseExact(ReadOnlySpan<char> trimmed, string format, IFormatProvider provider)
-	{
-		if (DateTimeOffset.TryParseExact(trimmed, format, provider, ExactStyles, out var value)
-			&& !IsSentinel(value))
-			return new Success<DateTimeOffset>(value);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, format);
-	}
+	static Result<DateTimeOffset> ParseExact(ReadOnlySpan<char> trimmed, string format, IFormatProvider provider) =>
+		DateTimeOffset.TryParseExact(trimmed, format, provider, ExactStyles, out var value) &&
+		!IsSentinel(value) ?
+			new Success<DateTimeOffset>(value) :
+			new Failure(ParseFailure.Malformed, trimmed, ExpectedType, format);
 
 	static Result<DateTimeOffset> ParseUnixCore(ReadOnlySpan<char> trimmed, UnixPrecision precision)
 	{
-		if (!long.TryParse(trimmed, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var epoch)
-			|| !InRange(epoch, precision))
+		if (!long.TryParse(trimmed, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var epoch) ||
+			!InRange(epoch, precision))
 			return new Failure(ParseFailure.Malformed, trimmed, ExpectedType);
-		var value = precision == UnixPrecision.Seconds
-			? DateTimeOffset.FromUnixTimeSeconds(epoch)
-			: DateTimeOffset.FromUnixTimeMilliseconds(epoch);
-		if (IsSentinel(value))
-			return new Failure(ParseFailure.Malformed, trimmed, ExpectedType);
-		return new Success<DateTimeOffset>(value);
+		var value = precision == UnixPrecision.Seconds ?
+			DateTimeOffset.FromUnixTimeSeconds(epoch) :
+			DateTimeOffset.FromUnixTimeMilliseconds(epoch);
+		return IsSentinel(value) ?
+			new Failure(ParseFailure.Malformed, trimmed, ExpectedType) :
+			new Success<DateTimeOffset>(value);
 	}
 
 	static bool InRange(long epoch, UnixPrecision precision) =>
-		precision == UnixPrecision.Seconds
-			? epoch is >= MinUnixSeconds and <= MaxUnixSeconds
-			: epoch is >= MinUnixMilliseconds and <= MaxUnixMilliseconds;
+		precision == UnixPrecision.Seconds ?
+			epoch is >= MinUnixSeconds and <= MaxUnixSeconds :
+			epoch is >= MinUnixMilliseconds and <= MaxUnixMilliseconds;
 
 	static bool IsSentinel(DateTimeOffset value) =>
 		value == DateTimeOffset.MinValue || value == DateTimeOffset.MaxValue;

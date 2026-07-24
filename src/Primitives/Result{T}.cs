@@ -37,7 +37,7 @@ public readonly record struct Result<T> : IUnion where T : notnull
 	{
 		Default = 0,
 		Success = 1,
-		Failure = 2,
+		Failure = 2
 	}
 
 	readonly Success<T> _success;

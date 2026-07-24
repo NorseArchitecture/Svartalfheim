@@ -8,7 +8,7 @@ namespace Norse.Primitives.Identifiers;
 /// identical native byte offsets in both layouts, so an instance always carries its own tag rather than
 /// relying on a runtime heuristic to guess.
 /// </remarks>
-public enum GuidByteOrder
+public enum GuidByteOrder : byte
 {
 	/// <summary>Sentinel CLR default — never a valid argument; guards against <c>default(GuidByteOrder)</c>.</summary>
 	Unspecified = 0,

@@ -9,7 +9,8 @@ public readonly record struct BoxedResult<T> where T : notnull
 {
 	readonly object? _value;
 
-	public BoxedResult(Success<T> value) => _value = value;
+	public BoxedResult(Success<T> value) =>
+		_value = value;
 
 	public BoxedResult(Failure value)
 	{

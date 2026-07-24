@@ -13,7 +13,7 @@ public sealed class TemporalFusionTests
 		var actual = TemporalFusion.FuseRequired("2026-01-02", "15:04:05", "America/Chicago");
 		actual.TryGetValue(out Success<DateTime> success).ShouldBeTrue();
 		success.Value.Kind.ShouldBe(DateTimeKind.Utc);
-		success.Value.ShouldBe(new DateTime(2026, 1, 2, 21, 4, 5, DateTimeKind.Utc));
+		success.Value.ShouldBe(new(2026, 1, 2, 21, 4, 5, DateTimeKind.Utc));
 	}
 
 	[Fact]
@@ -24,7 +24,7 @@ public sealed class TemporalFusionTests
 		var actual = TemporalFusion.FuseRequired("2026-06-15", "10:00:00", "America/Chicago");
 		actual.TryGetValue(out Success<DateTime> success).ShouldBeTrue();
 		success.Value.Kind.ShouldBe(DateTimeKind.Utc);
-		success.Value.ShouldBe(new DateTime(2026, 6, 15, 15, 0, 0, DateTimeKind.Utc));
+		success.Value.ShouldBe(new(2026, 6, 15, 15, 0, 0, DateTimeKind.Utc));
 	}
 
 	[Fact]

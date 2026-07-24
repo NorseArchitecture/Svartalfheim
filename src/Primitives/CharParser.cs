@@ -28,9 +28,9 @@ public static class CharParser
 		if (input.Length == 1)
 			return new Success<char>(input[0]);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return Parse(trimmed);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			Parse(trimmed);
 	}
 
 	/// <summary>
@@ -44,28 +44,26 @@ public static class CharParser
 		if (input.Length == 1)
 			return new Success<char>(input[0]);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return Parse(trimmed);
+		return trimmed.IsEmpty ?
+			null :
+			Parse(trimmed);
 	}
 
-	static Result<char> Parse(ReadOnlySpan<char> trimmed)
-	{
-		if (trimmed.Length == 1)
-			return new Success<char>(trimmed[0]);
-		if (TryCodePoint(trimmed, out var point))
-			return new Success<char>(point);
-		if (TryHtmlEntity(trimmed, out var entity))
-			return new Success<char>(entity);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType);
-	}
+	static Result<char> Parse(ReadOnlySpan<char> trimmed) =>
+		trimmed.Length == 1 ?
+			new Success<char>(trimmed[0]) :
+			TryCodePoint(trimmed, out var point) ?
+				new Success<char>(point) :
+				TryHtmlEntity(trimmed, out var entity) ?
+					new Success<char>(entity) :
+					new Failure(ParseFailure.Malformed, trimmed, ExpectedType);
 
 	static bool TryCodePoint(ReadOnlySpan<char> trimmed, out char value)
 	{
 		int code;
-		if (trimmed.StartsWith("U+", StringComparison.OrdinalIgnoreCase)
-			|| trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-			|| trimmed.StartsWith("&H", StringComparison.OrdinalIgnoreCase))
+		if (trimmed.StartsWith("U+", StringComparison.OrdinalIgnoreCase) ||
+			trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ||
+			trimmed.StartsWith("&H", StringComparison.OrdinalIgnoreCase))
 		{
 			if (int.TryParse(trimmed[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out code))
 				return InRange(code, out value);

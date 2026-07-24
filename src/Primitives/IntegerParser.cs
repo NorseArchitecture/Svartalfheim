@@ -21,11 +21,10 @@ namespace Norse.Primitives;
 public static class IntegerParser
 {
 	const NumberStyles DecimalStyles =
-		NumberStyles.Integer
-		| NumberStyles.AllowThousands
-		| NumberStyles.AllowParentheses
-		| NumberStyles.AllowCurrencySymbol
-		| NumberStyles.AllowExponent;
+		NumberStyles.Integer |
+		NumberStyles.AllowThousands |
+		NumberStyles.AllowParentheses | NumberStyles.AllowCurrencySymbol |
+		NumberStyles.AllowExponent;
 
 	/// <summary>
 	/// Parses required integer text. Empty or whitespace input is a
@@ -38,13 +37,13 @@ public static class IntegerParser
 	/// <returns>The parse outcome — never throws on bad input.</returns>
 	/// <exception cref="ArgumentNullException"><paramref name="provider"/> is null.</exception>
 	public static Result<T> ParseRequired<T>(ReadOnlySpan<char> input, IFormatProvider provider)
-		where T : notnull, IBinaryInteger<T>
+		where T : IBinaryInteger<T>
 	{
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, typeof(T).Name);
-		return Parse<T>(trimmed, provider);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, typeof(T).Name) :
+			Parse<T>(trimmed, provider);
 	}
 
 	/// <summary>
@@ -57,29 +56,27 @@ public static class IntegerParser
 	/// <returns><see langword="null"/> when absent; otherwise the parse outcome.</returns>
 	/// <exception cref="ArgumentNullException"><paramref name="provider"/> is null.</exception>
 	public static Result<T>? ParseOptional<T>(ReadOnlySpan<char> input, IFormatProvider provider)
-		where T : notnull, IBinaryInteger<T>
+		where T : IBinaryInteger<T>
 	{
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return Parse<T>(trimmed, provider);
+		return trimmed.IsEmpty ?
+			null :
+			Parse<T>(trimmed, provider);
 	}
 
 	static Result<T> Parse<T>(ReadOnlySpan<char> trimmed, IFormatProvider provider)
-		where T : notnull, IBinaryInteger<T>
-	{
-		if (TryRadix<T>(trimmed, out var radix))
-			return new Success<T>(radix!);
-		if (T.TryParse(trimmed, DecimalStyles, provider, out var value))
-			return new Success<T>(value!);
-		return new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
-	}
+		where T : IBinaryInteger<T> =>
+		TryRadix<T>(trimmed, out var radix) ?
+			new Success<T>(radix) :
+			T.TryParse(trimmed, DecimalStyles, provider, out var value) ?
+				new Success<T>(value) :
+				new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
 
 	static bool TryRadix<T>(ReadOnlySpan<char> trimmed, [MaybeNullWhen(false)] out T value) where T : notnull, IBinaryInteger<T>
 	{
-		if (trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
-			|| trimmed.StartsWith("&H", StringComparison.OrdinalIgnoreCase))
+		if (trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ||
+			trimmed.StartsWith("&H", StringComparison.OrdinalIgnoreCase))
 			return T.TryParse(trimmed[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value);
 		if (trimmed.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
 			return T.TryParse(trimmed[2..], NumberStyles.BinaryNumber, CultureInfo.InvariantCulture, out value);

@@ -17,8 +17,9 @@ namespace Norse.Primitives;
 /// </remarks>
 public static class TimeZoneParser
 {
-	const string ExpectedType = nameof(TimeZoneInfo);
-	const string IanaLabel = "IANA";
+	const string
+		ExpectedType = nameof(TimeZoneInfo),
+		IanaLabel = "IANA";
 
 	/// <summary>
 	/// Resolves a required IANA zone id. Empty or whitespace input is a
@@ -30,9 +31,9 @@ public static class TimeZoneParser
 	public static Result<TimeZoneInfo> ParseRequired(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return Resolve(trimmed);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			Resolve(trimmed);
 	}
 
 	/// <summary>
@@ -45,15 +46,13 @@ public static class TimeZoneParser
 	public static Result<TimeZoneInfo>? ParseOptional(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return Resolve(trimmed);
+		return trimmed.IsEmpty ?
+			null :
+			Resolve(trimmed);
 	}
 
-	static Result<TimeZoneInfo> Resolve(ReadOnlySpan<char> trimmed)
-	{
-		if (TimeZoneInfo.TryFindSystemTimeZoneById(trimmed.ToString(), out var zone))
-			return new Success<TimeZoneInfo>(zone);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IanaLabel);
-	}
+	static Result<TimeZoneInfo> Resolve(ReadOnlySpan<char> trimmed) =>
+		TimeZoneInfo.TryFindSystemTimeZoneById(trimmed.ToString(), out var zone) ?
+			new Success<TimeZoneInfo>(zone) :
+			new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IanaLabel);
 }

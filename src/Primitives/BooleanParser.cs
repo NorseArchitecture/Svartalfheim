@@ -19,13 +19,11 @@ public static class BooleanParser
 {
 	const string ExpectedType = nameof(Boolean);
 
-	static readonly FrozenSet<string>.AlternateLookup<ReadOnlySpan<char>> _trueValues =
-		new[] { "t", "yes", "y", "1", "on", "enabled", "active", "checked", "in" }
+	static readonly FrozenSet<string>.AlternateLookup<ReadOnlySpan<char>>
+		_trueValues = new[] { "t", "yes", "y", "1", "on", "enabled", "active", "checked", "in" }
 			.ToFrozenSet(StringComparer.OrdinalIgnoreCase)
-			.GetAlternateLookup<ReadOnlySpan<char>>();
-
-	static readonly FrozenSet<string>.AlternateLookup<ReadOnlySpan<char>> _falseValues =
-		new[] { "f", "no", "n", "0", "off", "disabled", "inactive", "unchecked", "out" }
+			.GetAlternateLookup<ReadOnlySpan<char>>(),
+		_falseValues = new[] { "f", "no", "n", "0", "off", "disabled", "inactive", "unchecked", "out" }
 			.ToFrozenSet(StringComparer.OrdinalIgnoreCase)
 			.GetAlternateLookup<ReadOnlySpan<char>>();
 
@@ -39,9 +37,9 @@ public static class BooleanParser
 	public static Result<bool> ParseRequired(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return Parse(trimmed);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			Parse(trimmed);
 	}
 
 	/// <summary>
@@ -53,19 +51,17 @@ public static class BooleanParser
 	public static Result<bool>? ParseOptional(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return Parse(trimmed);
+		return trimmed.IsEmpty ?
+			null :
+			Parse(trimmed);
 	}
 
-	static Result<bool> Parse(ReadOnlySpan<char> trimmed)
-	{
-		if (bool.TryParse(trimmed, out var parsed))
-			return new Success<bool>(parsed);
-		if (_trueValues.Contains(trimmed))
-			return new Success<bool>(true);
-		if (_falseValues.Contains(trimmed))
-			return new Success<bool>(false);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType);
-	}
+	static Result<bool> Parse(ReadOnlySpan<char> trimmed) =>
+		bool.TryParse(trimmed, out var parsed) ?
+			new Success<bool>(parsed) :
+			_trueValues.Contains(trimmed) ?
+				new Success<bool>(true) :
+				_falseValues.Contains(trimmed) ?
+					new Success<bool>(false) :
+					new Failure(ParseFailure.Malformed, trimmed, ExpectedType);
 }

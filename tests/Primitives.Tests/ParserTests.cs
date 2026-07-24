@@ -197,7 +197,7 @@ public sealed class ParserTests
 	{
 		Parser.ParseRequired<DateOnly>("2026-01-02", _invariant)
 			.TryGetValue(out Success<DateOnly> success).ShouldBeTrue();
-		success.Value.ShouldBe(new DateOnly(2026, 1, 2));
+		success.Value.ShouldBe(new(2026, 1, 2));
 	}
 
 	[Fact]
@@ -222,7 +222,7 @@ public sealed class ParserTests
 	{
 		Parser.ParseRequired<TimeOnly>("15:04:05", _invariant)
 			.TryGetValue(out Success<TimeOnly> time).ShouldBeTrue();
-		time.Value.ShouldBe(new TimeOnly(15, 4, 5));
+		time.Value.ShouldBe(new(15, 4, 5));
 	}
 
 	[Fact]
@@ -230,7 +230,7 @@ public sealed class ParserTests
 	{
 		Parser.ParseRequired<TimeSpan>("PT1H30M", _invariant)
 			.TryGetValue(out Success<TimeSpan> span).ShouldBeTrue();
-		span.Value.ShouldBe(new TimeSpan(1, 30, 0));
+		span.Value.ShouldBe(new(1, 30, 0));
 	}
 
 	[Theory]

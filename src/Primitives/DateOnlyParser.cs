@@ -11,9 +11,10 @@ namespace Norse.Primitives;
 /// </summary>
 public static class DateOnlyParser
 {
-	const string ExpectedType = nameof(DateOnly);
-	const string IsoFormat = "yyyy-MM-dd";
-	const string IsoLabel = "ISO 8601";
+	const string
+		ExpectedType = nameof(DateOnly),
+		IsoFormat = "yyyy-MM-dd",
+		IsoLabel = "ISO 8601";
 
 	/// <summary>Parses an ISO <c>yyyy-MM-dd</c> date. Empty ⇒ <see cref="ParseFailure.Empty"/>; unrecognized or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
 	/// <param name="input">The raw scalar text. A null string converts to the empty span.</param>
@@ -21,9 +22,9 @@ public static class DateOnlyParser
 	public static Result<DateOnly> ParseRequired(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseIso(trimmed);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseIso(trimmed);
 	}
 
 	/// <summary>Parses an optional ISO date. Empty ⇒ absent (<see langword="null"/>); unrecognized or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
@@ -32,9 +33,9 @@ public static class DateOnlyParser
 	public static Result<DateOnly>? ParseOptional(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseIso(trimmed);
+		return trimmed.IsEmpty ?
+			null :
+			ParseIso(trimmed);
 	}
 
 	/// <summary>Parses a date against a single caller-declared <paramref name="format"/>.</summary>
@@ -49,9 +50,9 @@ public static class DateOnlyParser
 		ArgumentException.ThrowIfNullOrEmpty(format);
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseExact(trimmed, format, provider);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseExact(trimmed, format, provider);
 	}
 
 	/// <summary>Parses an optional date against a single caller-declared <paramref name="format"/>.</summary>
@@ -66,23 +67,23 @@ public static class DateOnlyParser
 		ArgumentException.ThrowIfNullOrEmpty(format);
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseExact(trimmed, format, provider);
+		return trimmed.IsEmpty ?
+			null :
+			ParseExact(trimmed, format, provider);
 	}
 
 	static Result<DateOnly> ParseIso(ReadOnlySpan<char> trimmed)
 	{
-		if (DateOnly.TryParseExact(trimmed, IsoFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value)
-			&& !IsSentinel(value))
+		if (DateOnly.TryParseExact(trimmed, IsoFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) &&
+			!IsSentinel(value))
 			return new Success<DateOnly>(value);
 		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
 	}
 
 	static Result<DateOnly> ParseExact(ReadOnlySpan<char> trimmed, string format, IFormatProvider provider)
 	{
-		if (DateOnly.TryParseExact(trimmed, format, provider, DateTimeStyles.AllowWhiteSpaces, out var value)
-			&& !IsSentinel(value))
+		if (DateOnly.TryParseExact(trimmed, format, provider, DateTimeStyles.AllowWhiteSpaces, out var value) &&
+			!IsSentinel(value))
 			return new Success<DateOnly>(value);
 		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, format);
 	}

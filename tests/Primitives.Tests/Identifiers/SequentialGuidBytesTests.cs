@@ -17,18 +17,14 @@ public sealed class SequentialGuidBytesTests
 	[Theory]
 	[InlineData(-1L)]
 	[InlineData(0x0001_0000_0000_0000L)]
-	void Should_throw_when_timestamp_is_out_of_the_48_bit_range(long unixMilliseconds)
-	{
+	void Should_throw_when_timestamp_is_out_of_the_48_bit_range(long unixMilliseconds) =>
 		Should.Throw<ArgumentOutOfRangeException>(() =>
 			SequentialGuidBytes.GenerateRfc(unixMilliseconds, 0, new byte[6]));
-	}
 
 	[Fact]
-	void Should_throw_when_entropy_is_not_six_bytes()
-	{
+	void Should_throw_when_entropy_is_not_six_bytes() =>
 		Should.Throw<ArgumentException>(() =>
 			SequentialGuidBytes.GenerateRfc(0, 0, new byte[5]));
-	}
 
 	[Fact]
 	void Should_embed_the_exact_timestamp_and_counter_supplied()
@@ -68,7 +64,7 @@ public sealed class SequentialGuidBytesTests
 				((long)msBytes[0] << 40) | ((long)msBytes[1] << 32) | ((long)msBytes[2] << 24) |
 				((long)msBytes[3] << 16) | ((long)msBytes[4] << 8) | msBytes[5];
 			var counter = RandomNumberGenerator.GetInt32(0, 0x400_0000);
-			byte[] entropy = new byte[6];
+			var entropy = new byte[6];
 			RandomNumberGenerator.Fill(entropy);
 
 			var rfcGuid = SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, entropy);
@@ -95,18 +91,19 @@ public sealed class SequentialGuidBytesTests
 		// The counter's mirrored 14/12 repack exists specifically so ordering survives the
 		// 12-bit carry boundary (0xFFF -> 0x1000) under SQL Server's comparison, not just plain Guid's.
 		const long FixedMs = 1_800_000_000_000L;
-		List<(int Counter, SqlGuid Sql)> sequence = [];
+		IList<(int Counter, SqlGuid Sql)> sequence = [];
 		for (var counter = 4090; counter <= 4100; counter++)
 		{
-			byte[] entropy = new byte[6];
+			var entropy = new byte[6];
 			RandomNumberGenerator.Fill(entropy);
 			var rfcGuid = SequentialGuidBytes.GenerateRfc(FixedMs, counter, entropy);
 			var sqlGuid = SequentialGuidBytes.ToSqlOrder(rfcGuid);
-			sequence.Add((counter, new SqlGuid(sqlGuid)));
+			sequence.Add((counter, new(sqlGuid)));
 		}
 
-		var byCounter = sequence.OrderBy(x => x.Counter).Select(x => x.Counter).ToArray();
-		var bySqlOrder = sequence.OrderBy(x => x.Sql).Select(x => x.Counter).ToArray();
+		int[]
+			byCounter = [.. sequence.OrderBy(x => x.Counter).Select(x => x.Counter)],
+			bySqlOrder = [.. sequence.OrderBy(x => x.Sql).Select(x => x.Counter)];
 
 		bySqlOrder.ShouldBe(byCounter);
 	}
@@ -118,18 +115,19 @@ public sealed class SequentialGuidBytesTests
 		// WITHIN the 12-bit low counter chunk (e.g. 0x0FF -> 0x100), which never touches top14 and
 		// so only catches a bug in how bottom12's own bits are split across sql[6]/sql[7].
 		const long FixedMs = 1_800_000_000_000L;
-		List<(int Counter, SqlGuid Sql)> sequence = [];
+		IList<(int Counter, SqlGuid Sql)> sequence = [];
 		for (var counter = 0; counter <= 4200; counter++)
 		{
-			byte[] entropy = new byte[6];
+			var entropy = new byte[6];
 			RandomNumberGenerator.Fill(entropy);
 			var rfcGuid = SequentialGuidBytes.GenerateRfc(FixedMs, counter, entropy);
 			var sqlGuid = SequentialGuidBytes.ToSqlOrder(rfcGuid);
-			sequence.Add((counter, new SqlGuid(sqlGuid)));
+			sequence.Add((counter, new(sqlGuid)));
 		}
 
-		var byCounter = sequence.OrderBy(x => x.Counter).Select(x => x.Counter).ToArray();
-		var bySqlOrder = sequence.OrderBy(x => x.Sql).Select(x => x.Counter).ToArray();
+		int[]
+			byCounter = [.. sequence.OrderBy(x => x.Counter).Select(x => x.Counter)],
+			bySqlOrder = [.. sequence.OrderBy(x => x.Sql).Select(x => x.Counter)];
 
 		bySqlOrder.ShouldBe(byCounter);
 	}
@@ -138,22 +136,23 @@ public sealed class SequentialGuidBytesTests
 	void Should_sort_correctly_under_sql_server_semantics_across_a_millisecond_boundary()
 	{
 		const long FixedMs = 1_800_000_000_000L;
-		List<(int Index, SqlGuid Sql)> sequence = [];
+		IList<(int Index, SqlGuid Sql)> sequence = [];
 		var index = 0;
 		for (var msOffset = 0; msOffset < 5; msOffset++)
 		{
 			for (var counter = 0; counter < 3; counter++)
 			{
-				byte[] entropy = new byte[6];
+				var entropy = new byte[6];
 				RandomNumberGenerator.Fill(entropy);
 				var rfcGuid = SequentialGuidBytes.GenerateRfc(FixedMs + msOffset, counter, entropy);
 				var sqlGuid = SequentialGuidBytes.ToSqlOrder(rfcGuid);
-				sequence.Add((index++, new SqlGuid(sqlGuid)));
+				sequence.Add((index++, new(sqlGuid)));
 			}
 		}
 
-		var expected = sequence.Select(x => x.Index).ToArray();
-		var actual = sequence.OrderBy(x => x.Sql).Select(x => x.Index).ToArray();
+		int[]
+			expected = [.. sequence.Select(x => x.Index)],
+			actual = [.. sequence.OrderBy(x => x.Sql).Select(x => x.Index)];
 
 		actual.ShouldBe(expected);
 	}
