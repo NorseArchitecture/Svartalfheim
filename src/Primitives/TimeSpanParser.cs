@@ -12,8 +12,9 @@ namespace Norse.Primitives;
 /// </summary>
 public static class TimeSpanParser
 {
-	const string ExpectedType = nameof(TimeSpan);
-	const string IsoLabel = "ISO 8601";
+	const string
+		ExpectedType = nameof(TimeSpan),
+		IsoLabel = "ISO 8601";
 	// Parse-sanity bound on digit runs — NOT the overflow guard; overflow is handled by TryAddTicks and the seconds bounds check.
 	const int MaxDigits = 18;
 
@@ -23,9 +24,9 @@ public static class TimeSpanParser
 	public static Result<TimeSpan> ParseRequired(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseDuration(trimmed);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseDuration(trimmed);
 	}
 
 	/// <summary>Parses an optional span. Empty ⇒ absent; unrecognized or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
@@ -34,9 +35,9 @@ public static class TimeSpanParser
 	public static Result<TimeSpan>? ParseOptional(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseDuration(trimmed);
+		return trimmed.IsEmpty ?
+			null :
+			ParseDuration(trimmed);
 	}
 
 	/// <summary>Parses a span against a single caller-declared <paramref name="format"/>.</summary>
@@ -51,9 +52,9 @@ public static class TimeSpanParser
 		ArgumentException.ThrowIfNullOrEmpty(format);
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseExact(trimmed, format, provider);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseExact(trimmed, format, provider);
 	}
 
 	/// <summary>Parses an optional span against a single caller-declared <paramref name="format"/>.</summary>
@@ -68,27 +69,23 @@ public static class TimeSpanParser
 		ArgumentException.ThrowIfNullOrEmpty(format);
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseExact(trimmed, format, provider);
+		return trimmed.IsEmpty ?
+			null :
+			ParseExact(trimmed, format, provider);
 	}
 
-	static Result<TimeSpan> ParseDuration(ReadOnlySpan<char> trimmed)
-	{
+	static Result<TimeSpan> ParseDuration(ReadOnlySpan<char> trimmed) =>
 		// A leading 'P' (optionally signed) is the ISO-8601 duration discriminator — colon form never
 		// carries one, so the two grammars partition cleanly. Sniff first and route: feeding an ISO
 		// duration to the BCL colon parser only to watch it fail costs 424 B per call (measured), an
 		// allocation the colon parser charges on its reject path. The sniff sidesteps it.
-		if (IsIsoDuration(trimmed))
-		{
-			if (TryParseIso8601Duration(trimmed, out var iso) && !IsSentinel(iso))
-				return new Success<TimeSpan>(iso);
-			return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
-		}
-		if (TimeSpan.TryParse(trimmed, CultureInfo.InvariantCulture, out var colon) && !IsSentinel(colon))
-			return new Success<TimeSpan>(colon);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
-	}
+		IsIsoDuration(trimmed) ?
+			TryParseIso8601Duration(trimmed, out var iso) && !IsSentinel(iso) ?
+				new Success<TimeSpan>(iso) :
+				new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel) :
+			TimeSpan.TryParse(trimmed, CultureInfo.InvariantCulture, out var colon) && !IsSentinel(colon) ?
+				new Success<TimeSpan>(colon) :
+				new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
 
 	static bool IsIsoDuration(ReadOnlySpan<char> trimmed)
 	{
@@ -96,12 +93,10 @@ public static class TimeSpanParser
 		return index < trimmed.Length && trimmed[index] is 'P' or 'p';
 	}
 
-	static Result<TimeSpan> ParseExact(ReadOnlySpan<char> trimmed, string format, IFormatProvider provider)
-	{
-		if (TimeSpan.TryParseExact(trimmed, format, provider, out var value) && !IsSentinel(value))
-			return new Success<TimeSpan>(value);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, format);
-	}
+	static Result<TimeSpan> ParseExact(ReadOnlySpan<char> trimmed, string format, IFormatProvider provider) =>
+		TimeSpan.TryParseExact(trimmed, format, provider, out var value) && !IsSentinel(value) ?
+			new Success<TimeSpan>(value) :
+			new Failure(ParseFailure.Malformed, trimmed, ExpectedType, format);
 
 	// Grammar: [-] 'P' { n('W'|'D') } [ 'T' { n('H'|'M') | n[.n]('S') } ] — at least one component;
 	// year/month and any misplaced unit are rejected.

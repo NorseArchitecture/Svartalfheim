@@ -11,7 +11,7 @@ public sealed class SequentialGuidBatchTests
 
 		SequentialGuid.Fill(destination);
 
-		var array = destination.ToArray();
+		SequentialGuid[] array = [.. destination];
 		array.Distinct().Count().ShouldBe(10);
 		foreach (var value in array)
 			GuidVersionBits.HasVersionAndVariant(value.Value, 7).ShouldBeTrue();
@@ -24,7 +24,7 @@ public sealed class SequentialGuidBatchTests
 
 		SequentialGuid.Fill(destination);
 
-		var distinctTimestamps = destination.ToArray().Select(x => x.Timestamp).Distinct().ToArray();
+		DateTime[] distinctTimestamps = [.. destination.ToArray().Select(x => x.Timestamp).Distinct()];
 		distinctTimestamps.Length.ShouldBe(1);
 	}
 
@@ -35,7 +35,7 @@ public sealed class SequentialGuidBatchTests
 
 		SequentialGuid.Fill(destination);
 
-		var array = destination.ToArray();
+		SequentialGuid[] array = [.. destination];
 		for (var i = 1; i < array.Length; i++)
 			array[i].CompareTo(array[i - 1]).ShouldBeGreaterThan(0);
 	}
@@ -59,20 +59,14 @@ public sealed class SequentialGuidBatchTests
 	}
 
 	[Fact]
-	void Should_return_an_empty_array_when_count_is_zero()
-	{
+	void Should_return_an_empty_array_when_count_is_zero() =>
 		SequentialGuid.CreateMany(0).ShouldBeEmpty();
-	}
 
 	[Fact]
-	void Should_throw_when_count_is_negative()
-	{
+	void Should_throw_when_count_is_negative() =>
 		Should.Throw<ArgumentOutOfRangeException>(() => SequentialGuid.CreateMany(-1));
-	}
 
 	[Fact]
-	void Should_throw_when_count_exceeds_the_counter_space()
-	{
+	void Should_throw_when_count_exceeds_the_counter_space() =>
 		Should.Throw<ArgumentOutOfRangeException>(() => SequentialGuid.CreateMany(0x400_0001));
-	}
 }

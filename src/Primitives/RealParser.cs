@@ -28,10 +28,10 @@ namespace Norse.Primitives;
 public static class RealParser
 {
 	const NumberStyles RealStyles =
-		NumberStyles.Number
-		| NumberStyles.AllowExponent
-		| NumberStyles.AllowParentheses
-		| NumberStyles.AllowCurrencySymbol;
+		NumberStyles.Number |
+		NumberStyles.AllowExponent |
+		NumberStyles.AllowParentheses |
+		NumberStyles.AllowCurrencySymbol;
 
 	const int DecimalDigitGuard = 29;
 
@@ -46,13 +46,13 @@ public static class RealParser
 	/// <returns>The parse outcome — never throws on bad input.</returns>
 	/// <exception cref="ArgumentNullException"><paramref name="provider"/> is null.</exception>
 	public static Result<T> ParseRequired<T>(ReadOnlySpan<char> input, IFormatProvider provider)
-		where T : notnull, IFloatingPoint<T>
+		where T : IFloatingPoint<T>
 	{
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, typeof(T).Name);
-		return Parse<T>(trimmed, provider);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, typeof(T).Name) :
+			Parse<T>(trimmed, provider);
 	}
 
 	/// <summary>
@@ -65,30 +65,32 @@ public static class RealParser
 	/// <returns><see langword="null"/> when absent; otherwise the parse outcome.</returns>
 	/// <exception cref="ArgumentNullException"><paramref name="provider"/> is null.</exception>
 	public static Result<T>? ParseOptional<T>(ReadOnlySpan<char> input, IFormatProvider provider)
-		where T : notnull, IFloatingPoint<T>
+		where T : IFloatingPoint<T>
 	{
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return Parse<T>(trimmed, provider);
+		return trimmed.IsEmpty ?
+			null :
+			Parse<T>(trimmed, provider);
 	}
 
 	static Result<T> Parse<T>(ReadOnlySpan<char> trimmed, IFormatProvider provider)
-		where T : notnull, IFloatingPoint<T>
+		where T : IFloatingPoint<T>
 	{
 		if (typeof(T) == typeof(decimal) && CountDigits(trimmed) > DecimalDigitGuard)
 			return new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
-		if (trimmed[^1] == '%')
+		if (trimmed[^1] != '%')
 		{
-			var body = trimmed[..^1].TrimEnd();
-			if (T.TryParse(body, RealStyles, provider, out var percent) && T.IsFinite(percent!))
-				return new Success<T>(percent! / T.CreateChecked(100));
-			return new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
+			return T.TryParse(trimmed, RealStyles, provider, out var value) && T.IsFinite(value) ?
+				new Success<T>(value) :
+				new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
 		}
-		if (T.TryParse(trimmed, RealStyles, provider, out var value) && T.IsFinite(value!))
-			return new Success<T>(value!);
-		return new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
+
+		var body = trimmed[..^1].TrimEnd();
+		return T.TryParse(body, RealStyles, provider, out var percent) && T.IsFinite(percent) ?
+			new Success<T>(percent / T.CreateChecked(100)) :
+			new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
+
 	}
 
 	static int CountDigits(ReadOnlySpan<char> span)

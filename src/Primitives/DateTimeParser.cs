@@ -11,13 +11,15 @@ namespace Norse.Primitives;
 /// </summary>
 public static class DateTimeParser
 {
-	const string ExpectedType = nameof(DateTime);
-	const string IsoLabel = "ISO 8601";
+	const string
+		ExpectedType = nameof(DateTime),
+		IsoLabel = "ISO 8601";
 
-	const long MinUnixSeconds = -62135596800L;
-	const long MaxUnixSeconds = 253402300799L;
-	const long MinUnixMilliseconds = -62135596800000L;
-	const long MaxUnixMilliseconds = 253402300799999L;
+	const long
+		MinUnixSeconds = -62135596800L,
+		MaxUnixSeconds = 253402300799L,
+		MinUnixMilliseconds = -62135596800000L,
+		MaxUnixMilliseconds = 253402300799999L;
 
 	static readonly string[] _isoFormats =
 	[
@@ -27,8 +29,9 @@ public static class DateTimeParser
 		"yyyy-MM-ddTHH:mm:sszzz",
 	];
 
-	const DateTimeStyles IsoStyles = DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal;
-	const DateTimeStyles ExactStyles = IsoStyles | DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.NoCurrentDateDefault;
+	const DateTimeStyles
+		IsoStyles = DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+		ExactStyles = IsoStyles | DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.NoCurrentDateDefault;
 
 	/// <summary>Parses an ISO datetime with a mandatory zone to a UTC <see cref="DateTime"/>. Empty ⇒ <see cref="ParseFailure.Empty"/>; unrecognized, zone-less, or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
 	/// <param name="input">The raw scalar text. A null string converts to the empty span.</param>
@@ -36,9 +39,9 @@ public static class DateTimeParser
 	public static Result<DateTime> ParseRequired(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseIso(trimmed);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseIso(trimmed);
 	}
 
 	/// <summary>Parses an optional ISO datetime. Empty ⇒ absent; unrecognized, zone-less, or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
@@ -47,9 +50,9 @@ public static class DateTimeParser
 	public static Result<DateTime>? ParseOptional(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseIso(trimmed);
+		return trimmed.IsEmpty ?
+			null :
+			ParseIso(trimmed);
 	}
 
 	/// <summary>Parses a datetime against a single caller-declared <paramref name="format"/>, resolving to UTC (never local), with no current-date default.</summary>
@@ -64,9 +67,9 @@ public static class DateTimeParser
 		ArgumentException.ThrowIfNullOrEmpty(format);
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseExact(trimmed, format, provider);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseExact(trimmed, format, provider);
 	}
 
 	/// <summary>Parses an optional datetime against a single caller-declared <paramref name="format"/>.</summary>
@@ -81,9 +84,9 @@ public static class DateTimeParser
 		ArgumentException.ThrowIfNullOrEmpty(format);
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseExact(trimmed, format, provider);
+		return trimmed.IsEmpty ?
+			null :
+			ParseExact(trimmed, format, provider);
 	}
 
 	/// <summary>Parses a declared Unix epoch to a UTC <see cref="DateTime"/> (integer; negatives allowed). Empty ⇒ <see cref="ParseFailure.Empty"/>; non-integer, out-of-range, or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
@@ -95,9 +98,9 @@ public static class DateTimeParser
 	{
 		GuardPrecision(precision);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseUnixCore(trimmed, precision);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseUnixCore(trimmed, precision);
 	}
 
 	/// <summary>Parses an optional declared Unix epoch to a UTC <see cref="DateTime"/>. Empty ⇒ absent; non-integer, out-of-range, or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
@@ -109,18 +112,15 @@ public static class DateTimeParser
 	{
 		GuardPrecision(precision);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseUnixCore(trimmed, precision);
+		return trimmed.IsEmpty ?
+			null :
+			ParseUnixCore(trimmed, precision);
 	}
 
-	static Result<DateTime> ParseIso(ReadOnlySpan<char> trimmed)
-	{
-		if (DateTime.TryParseExact(trimmed, _isoFormats, CultureInfo.InvariantCulture, IsoStyles, out var value)
-			&& !IsSentinel(value))
-			return new Success<DateTime>(value);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
-	}
+	static Result<DateTime> ParseIso(ReadOnlySpan<char> trimmed) =>
+		DateTime.TryParseExact(trimmed, _isoFormats, CultureInfo.InvariantCulture, IsoStyles, out var value) && !IsSentinel(value)
+			? new Success<DateTime>(value)
+			: new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
 
 	static Result<DateTime> ParseExact(ReadOnlySpan<char> trimmed, string format, IFormatProvider provider)
 	{

@@ -86,8 +86,9 @@ public sealed class SequentialGuidTests
 		for (var i = 0; i < 20; i++)
 			sqlTaggedValues.Add(new SequentialGuid().ToSqlOrder());
 
-		var expectedBySqlGuid = sqlTaggedValues.OrderBy(x => new SqlGuid(x.Value)).ToArray();
-		var actualByCompareTo = sqlTaggedValues.OrderBy(x => x).ToArray();
+		SequentialGuid[]
+			expectedBySqlGuid = [.. sqlTaggedValues.OrderBy(x => new SqlGuid(x.Value))],
+			actualByCompareTo = [.. sqlTaggedValues.OrderBy(x => x)];
 
 		actualByCompareTo.ShouldBe(expectedBySqlGuid);
 	}

@@ -11,12 +11,13 @@ try
 	Check("SepTabularReader reads a delimited row by name and by ordinal", () =>
 	{
 		using ITabularReader reader = new SepTabularReader(csvPath, ',');
-		return reader.Read()
-			&& reader[reader.Ordinal("Name")].SequenceEqual("Nigeria")
-			&& reader[0].SequenceEqual("Nigeria")
-			&& reader.Read()
-			&& reader[reader.Ordinal("Code")].SequenceEqual("012")
-			&& !reader.Read();
+		return
+			reader.Read() &&
+			reader[reader.Ordinal("Name")] is "Nigeria" &&
+			reader[0] is "Nigeria" &&
+			reader.Read() &&
+			reader[reader.Ordinal("Code")] is "012" &&
+			!reader.Read();
 	});
 #pragma warning restore CA1859
 
@@ -32,11 +33,11 @@ try
 	Check("ExcelTabularReader reads a single sheet forward-only", () =>
 	{
 		using ITabularReader reader = new ExcelTabularReader(xlsxPath);
-		return reader.Read()
-			&& reader[reader.Ordinal("Name")].SequenceEqual("Nigeria")
-			&& reader.Read()
-			&& reader[reader.Ordinal("Code")].SequenceEqual("012")
-			&& !reader.Read();
+		return
+			reader.Read() && reader[reader.Ordinal("Name")] is "Nigeria" &&
+			reader.Read() &&
+			reader[reader.Ordinal("Code")] is "012" &&
+			!reader.Read();
 	});
 #pragma warning restore CA1859
 }

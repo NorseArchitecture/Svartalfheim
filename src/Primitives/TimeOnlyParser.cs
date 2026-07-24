@@ -11,8 +11,9 @@ namespace Norse.Primitives;
 /// </summary>
 public static class TimeOnlyParser
 {
-	const string ExpectedType = nameof(TimeOnly);
-	const string IsoLabel = "ISO 8601";
+	const string
+		ExpectedType = nameof(TimeOnly),
+		IsoLabel = "ISO 8601";
 
 	static readonly string[] _isoFormats = ["HH:mm:ss.FFFFFFF", "HH:mm:ss", "HH:mm"];
 
@@ -22,9 +23,9 @@ public static class TimeOnlyParser
 	public static Result<TimeOnly> ParseRequired(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseIso(trimmed);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseIso(trimmed);
 	}
 
 	/// <summary>Parses an optional ISO time. Empty ⇒ absent; unrecognized ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
@@ -33,9 +34,9 @@ public static class TimeOnlyParser
 	public static Result<TimeOnly>? ParseOptional(ReadOnlySpan<char> input)
 	{
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseIso(trimmed);
+		return trimmed.IsEmpty ?
+			null :
+			ParseIso(trimmed);
 	}
 
 	/// <summary>Parses a time against a single caller-declared <paramref name="format"/>.</summary>
@@ -50,9 +51,9 @@ public static class TimeOnlyParser
 		ArgumentException.ThrowIfNullOrEmpty(format);
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return new Failure(ParseFailure.Empty, string.Empty, ExpectedType);
-		return ParseExact(trimmed, format, provider);
+		return trimmed.IsEmpty ?
+			new Failure(ParseFailure.Empty, string.Empty, ExpectedType) :
+			ParseExact(trimmed, format, provider);
 	}
 
 	/// <summary>Parses an optional time against a single caller-declared <paramref name="format"/>.</summary>
@@ -67,22 +68,19 @@ public static class TimeOnlyParser
 		ArgumentException.ThrowIfNullOrEmpty(format);
 		ArgumentNullException.ThrowIfNull(provider);
 		var trimmed = input.Trim();
-		if (trimmed.IsEmpty)
-			return null;
-		return ParseExact(trimmed, format, provider);
+		return trimmed.IsEmpty ?
+			null :
+			ParseExact(trimmed, format, provider);
 	}
 
-	static Result<TimeOnly> ParseIso(ReadOnlySpan<char> trimmed)
-	{
-		if (TimeOnly.TryParseExact(trimmed, _isoFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value))
-			return new Success<TimeOnly>(value);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
-	}
+	static Result<TimeOnly> ParseIso(ReadOnlySpan<char> trimmed) =>
+		TimeOnly.TryParseExact(trimmed, _isoFormats, CultureInfo.InvariantCulture, DateTimeStyles.None,
+			out var value) ?
+			new Success<TimeOnly>(value) :
+			new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
 
-	static Result<TimeOnly> ParseExact(ReadOnlySpan<char> trimmed, string format, IFormatProvider provider)
-	{
-		if (TimeOnly.TryParseExact(trimmed, format, provider, DateTimeStyles.AllowWhiteSpaces, out var value))
-			return new Success<TimeOnly>(value);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, format);
-	}
+	static Result<TimeOnly> ParseExact(ReadOnlySpan<char> trimmed, string format, IFormatProvider provider) =>
+		TimeOnly.TryParseExact(trimmed, format, provider, DateTimeStyles.AllowWhiteSpaces, out var value) ?
+			new Success<TimeOnly>(value) :
+			new Failure(ParseFailure.Malformed, trimmed, ExpectedType, format);
 }

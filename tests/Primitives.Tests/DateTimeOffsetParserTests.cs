@@ -79,7 +79,7 @@ public sealed class DateTimeOffsetParserTests
 	{
 		DateTimeOffsetParser.ParseUnix("-1", UnixPrecision.Seconds)
 			.TryGetValue(out Success<DateTimeOffset> success).ShouldBeTrue();
-		success.Value.ShouldBe(new DateTimeOffset(1969, 12, 31, 23, 59, 59, TimeSpan.Zero));
+		success.Value.ShouldBe(new(1969, 12, 31, 23, 59, 59, TimeSpan.Zero));
 	}
 
 	[Theory]

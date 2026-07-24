@@ -6,9 +6,10 @@ public sealed class IntegerParserTests
 {
 	const string AllWhitespace = " \t\r\n\f ";
 
-	static readonly IFormatProvider _invariant = CultureInfo.InvariantCulture;
-	static readonly IFormatProvider _enUs = CultureInfo.GetCultureInfo("en-US");
-	static readonly IFormatProvider _deDe = CultureInfo.GetCultureInfo("de-DE");
+	static readonly IFormatProvider
+		_invariant = CultureInfo.InvariantCulture,
+		_enUs = CultureInfo.GetCultureInfo("en-US"),
+		_deDe = CultureInfo.GetCultureInfo("de-DE");
 
 	[Theory]
 	[InlineData("42", 42)]
@@ -101,7 +102,7 @@ public sealed class IntegerParserTests
 	[Fact]
 	void Should_truncate_captured_input_when_malformed_input_is_oversized()
 	{
-		var oversized = "z" + new string('9', Failure.MaxInputLength + 44);
+		var oversized = $"z{new string('9', Failure.MaxInputLength + 44)}";
 		var actual = IntegerParser.ParseRequired<int>(oversized, _invariant);
 		actual.TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Input.Length.ShouldBe(Failure.MaxInputLength);
