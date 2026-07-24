@@ -3,4 +3,7 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<Description>Norse forged primitives: the Result&lt;T&gt; discriminated union, closed parse-failure vocabulary, and hot-path scalar parsers for every boundary crossing into the Norse ecosystem from untrusted sources.</Description>
 	</PropertyGroup>
+	<ItemGroup>
+		<SupportedPlatform Include="browser" />
+	</ItemGroup>
 </Project>
