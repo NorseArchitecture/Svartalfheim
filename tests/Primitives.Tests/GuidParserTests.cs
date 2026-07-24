@@ -59,7 +59,7 @@ public sealed class GuidParserTests
 	[Fact]
 	void Should_parse_value_when_optional_input_is_recognized()
 	{
-		var actual = GuidParser.ParseOptional("urn:uuid:" + Known);
+		var actual = GuidParser.ParseOptional($"urn:uuid:{Known}");
 		actual.HasValue.ShouldBeTrue();
 		actual.Value.TryGetValue(out Success<Guid> success).ShouldBeTrue();
 		success.Value.ShouldBe(_expected);
