@@ -122,6 +122,7 @@ public sealed class SequentialGuidTests
 	[Fact]
 	void Should_throw_a_clear_exception_when_Equals_is_called_on_a_default_value()
 	{
+		// ReSharper disable once ReturnValueOfPureMethodIsNotUsed
 		Action act = () => default(SequentialGuid).Equals(new SequentialGuid());
 
 		Should.Throw<InvalidOperationException>(act);
@@ -130,6 +131,7 @@ public sealed class SequentialGuidTests
 	[Fact]
 	void Should_throw_a_clear_exception_when_GetHashCode_is_called_on_a_default_value()
 	{
+		// ReSharper disable once ReturnValueOfPureMethodIsNotUsed
 		Action act = () => default(SequentialGuid).GetHashCode();
 
 		Should.Throw<InvalidOperationException>(act);
