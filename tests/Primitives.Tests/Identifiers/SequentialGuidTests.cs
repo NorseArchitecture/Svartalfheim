@@ -27,10 +27,8 @@ public sealed class SequentialGuidTests
 	[Theory]
 	[InlineData(GuidByteOrder.Rfc9562)]
 	[InlineData(GuidByteOrder.SqlServer)]
-	void Should_throw_when_wrapped_value_is_not_a_version7_guid(GuidByteOrder order)
-	{
+	void Should_throw_when_wrapped_value_is_not_a_version7_guid(GuidByteOrder order) =>
 		Should.Throw<ArgumentException>(() => new SequentialGuid(Guid.NewGuid(), order));
-	}
 
 	[Fact]
 	void Should_throw_when_order_is_unspecified()
