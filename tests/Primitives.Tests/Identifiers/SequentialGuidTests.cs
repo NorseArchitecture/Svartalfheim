@@ -102,4 +102,38 @@ public sealed class SequentialGuidTests
 
 		unwrapped.ShouldBe(value.Value);
 	}
+
+	[Fact]
+	void Should_throw_a_clear_exception_when_ToRfcOrder_is_called_on_a_default_value()
+	{
+		Action act = () => default(SequentialGuid).ToRfcOrder();
+
+		var ex = Should.Throw<InvalidOperationException>(act);
+		ex.Message.ShouldContain("malformed by construction");
+	}
+
+	[Fact]
+	void Should_throw_a_clear_exception_when_ToSqlOrder_is_called_on_a_default_value()
+	{
+		Action act = () => default(SequentialGuid).ToSqlOrder();
+
+		var ex = Should.Throw<InvalidOperationException>(act);
+		ex.Message.ShouldContain("malformed by construction");
+	}
+
+	[Fact]
+	void Should_throw_a_clear_exception_when_Equals_is_called_on_a_default_value()
+	{
+		Action act = () => default(SequentialGuid).Equals(new SequentialGuid());
+
+		Should.Throw<InvalidOperationException>(act);
+	}
+
+	[Fact]
+	void Should_throw_a_clear_exception_when_GetHashCode_is_called_on_a_default_value()
+	{
+		Action act = () => default(SequentialGuid).GetHashCode();
+
+		Should.Throw<InvalidOperationException>(act);
+	}
 }
