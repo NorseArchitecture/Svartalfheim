@@ -65,12 +65,26 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 	}
 
 	/// <summary>Returns this value converted to <see cref="GuidByteOrder.SqlServer"/> order (a no-op if already there).</summary>
+	/// <exception cref="InvalidOperationException"><see cref="Order"/> is <see cref="GuidByteOrder.Unspecified"/> -- <c>default(SequentialGuid)</c> is malformed by construction.</exception>
 	public SequentialGuid ToSqlOrder() =>
-		Order == GuidByteOrder.SqlServer ? this : new(SequentialGuidBytes.ToSqlOrder(Value), GuidByteOrder.SqlServer);
+		Order switch
+		{
+			GuidByteOrder.Unspecified => throw new InvalidOperationException(
+				"default(SequentialGuid) is malformed by construction -- Order is Unspecified. Only wrap a value this platform already produced via the two-arg constructor, or generate a new one with SequentialGuid()."),
+			GuidByteOrder.SqlServer => this,
+			_ => new(SequentialGuidBytes.ToSqlOrder(Value), GuidByteOrder.SqlServer)
+		};
 
 	/// <summary>Returns this value converted to <see cref="GuidByteOrder.Rfc9562"/> order (a no-op if already there).</summary>
+	/// <exception cref="InvalidOperationException"><see cref="Order"/> is <see cref="GuidByteOrder.Unspecified"/> -- <c>default(SequentialGuid)</c> is malformed by construction.</exception>
 	public SequentialGuid ToRfcOrder() =>
-		Order == GuidByteOrder.Rfc9562 ? this : new(SequentialGuidBytes.ToRfcOrder(Value), GuidByteOrder.Rfc9562);
+		Order switch
+		{
+			GuidByteOrder.Unspecified => throw new InvalidOperationException(
+				"default(SequentialGuid) is malformed by construction -- Order is Unspecified. Only wrap a value this platform already produced via the two-arg constructor, or generate a new one with SequentialGuid()."),
+			GuidByteOrder.Rfc9562 => this,
+			_ => new(SequentialGuidBytes.ToRfcOrder(Value), GuidByteOrder.Rfc9562)
+		};
 
 	/// <summary>Implicitly unwraps to the underlying <see cref="Guid"/> (storage/wire representation).</summary>
 	[SuppressMessage("Usage", "CA2225:Operator overloads have named alternates",
