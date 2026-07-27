@@ -89,24 +89,27 @@ public sealed class ResultTests
 	[Fact]
 	void Should_be_equal_when_same_success_value()
 	{
-		Result<bool> left = new Success<bool>(true);
-		Result<bool> right = new Success<bool>(true);
+		Result<bool>
+			left = new Success<bool>(true),
+			right = new Success<bool>(true);
 		left.ShouldBe(right);
 	}
 
 	[Fact]
 	void Should_not_be_equal_when_cases_differ()
 	{
-		Result<bool> left = new Success<bool>(false);
-		Result<bool> right = MalformedBoolean();
+		Result<bool>
+			left = new Success<bool>(false),
+			right = MalformedBoolean();
 		left.ShouldNotBe(right);
 	}
 
 	[Fact]
 	void Should_render_case_shape_when_converted_to_string()
 	{
-		Result<bool> success = new Success<bool>(true);
-		Result<bool> failure = MalformedBoolean();
+		Result<bool>
+			success = new Success<bool>(true),
+			failure = MalformedBoolean();
 		success.ToString().ShouldBe("Success(True)");
 		failure.ToString().ShouldBe("Failure(Malformed, \"bogus\")");
 	}
@@ -135,8 +138,9 @@ public sealed class ResultTests
 	[Fact]
 	void Should_hash_equal_when_same_success_value()
 	{
-		Result<bool> left = new Success<bool>(true);
-		Result<bool> right = new Success<bool>(true);
+		Result<bool>
+			left = new Success<bool>(true),
+			right = new Success<bool>(true);
 		left.GetHashCode().ShouldBe(right.GetHashCode());
 	}
 

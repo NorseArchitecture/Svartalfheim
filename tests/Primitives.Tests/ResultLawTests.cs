@@ -35,8 +35,9 @@ public sealed class ResultLawTests
 	void Should_compose_transforms_when_mapped_in_sequence() =>
 		Prop.ForAll(ResultGen.ToArbitrary(), ArbMap.Default.ArbFor<int>(), ArbMap.Default.ArbFor<int>(), (result, a, b) =>
 		{
-			Func<int, int> f = x => unchecked(x + a);
-			Func<int, int> g = x => unchecked(x * b);
+			Func<int, int>
+				f = x => unchecked(x + a),
+				g = x => unchecked(x * b);
 			return result.Map(f).Map(g) == result.Map(x => g(f(x)));
 		})
 			.QuickCheckThrowOnFailure();

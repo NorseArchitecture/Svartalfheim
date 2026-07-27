@@ -2,16 +2,15 @@ using nietras.SeparatedValues;
 
 namespace Norse.Primitives.Ingestion;
 
-/// <summary>An <see cref="ITabularReader"/> over a delimited file, backed by Sep.</summary>
-sealed class SepTabularReader : ITabularReader
+/// <summary>
+/// An <see cref="ITabularReader"/> over a delimited file, backed by Sep.
+/// Opens <paramref name="path"/> for forward-only reading.
+/// </summary>
+/// <param name="path">The delimited file's path.</param>
+/// <param name="separator">The field separator (e.g. <c>','</c> for CSV, <c>'\t'</c> for TSV).</param>
+sealed class SepTabularReader(string path, char separator) : ITabularReader
 {
-	readonly SepReader _reader;
-
-	/// <summary>Opens <paramref name="path"/> for forward-only reading.</summary>
-	/// <param name="path">The delimited file's path.</param>
-	/// <param name="separator">The field separator (e.g. <c>','</c> for CSV, <c>'\t'</c> for TSV).</param>
-	public SepTabularReader(string path, char separator) =>
-		_reader = Sep.New(separator).Reader().FromFile(path);
+	readonly SepReader _reader = Sep.New(separator).Reader().FromFile(path);
 
 	public int FieldCount =>
 		_reader.Header.ColNames.Count;

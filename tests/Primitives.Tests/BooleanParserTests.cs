@@ -133,7 +133,7 @@ public sealed class BooleanParserTests
 	[Fact]
 	void Should_truncate_captured_input_when_malformed_input_is_oversized()
 	{
-		var oversized = new string('x', Failure.MaxInputLength + 100);
+		string oversized = new('x', Failure.MaxInputLength + 100);
 		var actual = BooleanParser.ParseRequired(oversized);
 		actual.TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);

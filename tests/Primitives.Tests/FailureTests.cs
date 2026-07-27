@@ -5,7 +5,7 @@ public sealed class FailureTests
 	[Fact]
 	void Should_pass_input_through_when_within_bound()
 	{
-		var failure = new Failure(ParseFailure.Malformed, "bogus", "Boolean");
+		Failure failure = new(ParseFailure.Malformed, "bogus", "Boolean");
 		failure.Input.ShouldBe("bogus");
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
 		failure.ExpectedType.ShouldBe("Boolean");
@@ -16,8 +16,8 @@ public sealed class FailureTests
 	[Fact]
 	void Should_truncate_input_when_longer_than_max()
 	{
-		var oversized = new string('x', Failure.MaxInputLength + 44);
-		var failure = new Failure(ParseFailure.Malformed, oversized, "Boolean");
+		string oversized = new('x', Failure.MaxInputLength + 44);
+		Failure failure = new(ParseFailure.Malformed, oversized, "Boolean");
 		failure.Input.Length.ShouldBe(Failure.MaxInputLength);
 		failure.Input.ShouldBe(oversized[..Failure.MaxInputLength]);
 	}
@@ -25,8 +25,8 @@ public sealed class FailureTests
 	[Fact]
 	void Should_truncate_span_input_when_longer_than_max()
 	{
-		var oversized = new string('x', Failure.MaxInputLength + 44);
-		var failure = new Failure(ParseFailure.Malformed, oversized.AsSpan(), "Boolean");
+		string oversized = new('x', Failure.MaxInputLength + 44);
+		Failure failure = new(ParseFailure.Malformed, oversized.AsSpan(), "Boolean");
 		failure.Input.Length.ShouldBe(Failure.MaxInputLength);
 		failure.Input.ShouldBe(oversized[..Failure.MaxInputLength]);
 	}
@@ -34,16 +34,18 @@ public sealed class FailureTests
 	[Fact]
 	void Should_be_equal_when_all_fields_match()
 	{
-		var left = new Failure(ParseFailure.Empty, "", "Boolean");
-		var right = new Failure(ParseFailure.Empty, "", "Boolean");
+		Failure
+			left = new(ParseFailure.Empty, "", "Boolean"),
+			right = new(ParseFailure.Empty, "", "Boolean");
 		left.ShouldBe(right);
 	}
 
 	[Fact]
 	void Should_not_be_equal_when_reason_differs()
 	{
-		var left = new Failure(ParseFailure.Empty, "", "Boolean");
-		var right = new Failure(ParseFailure.Malformed, "", "Boolean");
+		Failure
+			left = new(ParseFailure.Empty, "", "Boolean"),
+			right = new(ParseFailure.Malformed, "", "Boolean");
 		left.ShouldNotBe(right);
 	}
 
@@ -66,24 +68,27 @@ public sealed class FailureTests
 	[Fact]
 	void Should_be_equal_when_format_and_detail_match()
 	{
-		var left = new Failure(ParseFailure.Malformed, "x", "DateOnly", "yyyy-MM-dd", "detail");
-		var right = new Failure(ParseFailure.Malformed, "x", "DateOnly", "yyyy-MM-dd", "detail");
+		Failure
+			left = new(ParseFailure.Malformed, "x", "DateOnly", "yyyy-MM-dd", "detail"),
+			right = new(ParseFailure.Malformed, "x", "DateOnly", "yyyy-MM-dd", "detail");
 		left.ShouldBe(right);
 	}
 
 	[Fact]
 	void Should_not_be_equal_when_format_differs()
 	{
-		var left = new Failure(ParseFailure.Malformed, "x", "DateOnly", "yyyy-MM-dd");
-		var right = new Failure(ParseFailure.Malformed, "x", "DateOnly", "MM/dd/yyyy");
+		Failure
+			left = new(ParseFailure.Malformed, "x", "DateOnly", "yyyy-MM-dd"),
+			right = new(ParseFailure.Malformed, "x", "DateOnly", "MM/dd/yyyy");
 		left.ShouldNotBe(right);
 	}
 
 	[Fact]
 	void Should_not_be_equal_when_detail_differs()
 	{
-		var left = new Failure(ParseFailure.Malformed, "x", "Boolean", null, "left");
-		var right = new Failure(ParseFailure.Malformed, "x", "Boolean", null, "right");
+		Failure
+			left = new(ParseFailure.Malformed, "x", "Boolean", null, "left"),
+			right = new(ParseFailure.Malformed, "x", "Boolean", null, "right");
 		left.ShouldNotBe(right);
 	}
 

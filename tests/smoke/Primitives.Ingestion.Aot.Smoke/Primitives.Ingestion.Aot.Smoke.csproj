@@ -18,7 +18,7 @@
 		<NoWarn>$(NoWarn);IL2093</NoWarn>
 	</PropertyGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\..\..\src\Primitives.Ingestion\Primitives.Ingestion.csproj" />
 		<None Include="Fixtures\smoke.xlsx" CopyToOutputDirectory="PreserveNewest" />
+		<ProjectReference Include="..\..\..\src\Primitives.Ingestion\Primitives.Ingestion.csproj" />
 	</ItemGroup>
 </Project>

@@ -6,8 +6,9 @@ public sealed class DateOnlyParserTests
 {
 	const string AllWhitespace = " \t\r\n\f ";
 
-	static readonly IFormatProvider _enUs = CultureInfo.GetCultureInfo("en-US");
-	static readonly IFormatProvider _enGb = CultureInfo.GetCultureInfo("en-GB");
+	static readonly IFormatProvider
+		_enUs = CultureInfo.GetCultureInfo("en-US"),
+		_enGb = CultureInfo.GetCultureInfo("en-GB");
 
 	[Theory]
 	[InlineData("2026-01-02")]

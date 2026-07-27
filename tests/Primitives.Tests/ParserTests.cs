@@ -119,7 +119,7 @@ public sealed class ParserTests
 	[Fact]
 	void Should_truncate_captured_input_when_malformed_input_is_oversized()
 	{
-		var oversized = new string('9', Failure.MaxInputLength + 44);
+		string oversized = new('9', Failure.MaxInputLength + 44);
 		var actual = Parser.ParseRequired<int>(oversized, _invariant);
 		actual.TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
@@ -173,7 +173,7 @@ public sealed class ParserTests
 	[Fact]
 	void Should_route_guid_prefix_through_the_gateway()
 	{
-		var expected = new Guid("01020304-0506-0708-090a-0b0c0d0e0f10");
+		Guid expected = new("01020304-0506-0708-090a-0b0c0d0e0f10");
 		Parser.ParseRequired<Guid>("urn:uuid:01020304-0506-0708-090a-0b0c0d0e0f10", _invariant)
 			.TryGetValue(out Success<Guid> success).ShouldBeTrue();
 		success.Value.ShouldBe(expected);
