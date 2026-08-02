@@ -233,6 +233,27 @@ public sealed class ParserTests
 		span.Value.ShouldBe(new(1, 30, 0));
 	}
 
+	[Fact]
+	void Should_route_full_iso8601_duration_through_the_gateway()
+	{
+		Parser.ParseRequired<TimeSpan>("P1DT2H3M4S", _invariant)
+			.TryGetValue(out Success<TimeSpan> span).ShouldBeTrue();
+		span.Value.ShouldBe(new(1, 2, 3, 4));
+	}
+
+	[Theory]
+	[InlineData("NaN")]
+	[InlineData("Infinity")]
+	[InlineData("-Infinity")]
+	[InlineData("INF")]
+	[InlineData("-INF")]
+	void Should_reject_non_finite_real_through_the_gateway(string lexeme)
+	{
+		Parser.ParseRequired<double>(lexeme, _invariant)
+			.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
+
 	[Theory]
 	[InlineData("1/2/2026")]              // US slash date
 	[InlineData("2026-01-02T15:04:05")]   // zone-less datetime
