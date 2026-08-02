@@ -31,18 +31,43 @@ static class ResponseClosureWalker
 		{
 			var current = queue.Dequeue();
 			foreach (var property in GetInstanceProperties(current))
-			{
-				var propertyType = UnwrapNullable(property.Type);
-
-				if (IsResultType(propertyType, wellKnown.ResultType))
-				{
-					Report(context, property, current, serviceInterface, operation);
-					continue;
-				}
-
-				EnqueueReachable(propertyType, wellKnown, visited, queue);
-			}
+				ProcessProperty(context, property, current, serviceInterface, operation, wellKnown, visited, queue);
 		}
+	}
+
+	/// <summary>
+	/// One property, one verdict: report NORSE060 if the property's own type — or, one layer deeper, a
+	/// collection property's ITEM type — is <c>Result&lt;T&gt;</c>/<c>Result&lt;T&gt;?</c>; otherwise
+	/// enqueue whatever complex type is reachable from it (the property itself, or its collection item
+	/// type) for further walking. A collection whose item type IS <c>Result&lt;T&gt;</c> (<c>List&lt;Result&lt;T&gt;&gt;</c>,
+	/// <c>Result&lt;T&gt;[]</c>, any <c>IEnumerable&lt;Result&lt;T&gt;&gt;</c>) is exactly the same law
+	/// violation as a direct <c>Result&lt;T&gt;</c> property, one collection layer removed — reported on
+	/// the collection property itself, never silently dropped.
+	/// </summary>
+	static void ProcessProperty(SymbolAnalysisContext context, IPropertySymbol property, INamedTypeSymbol declaringType, INamedTypeSymbol serviceInterface, IMethodSymbol operation, WellKnownTypes wellKnown, HashSet<INamedTypeSymbol> visited, Queue<INamedTypeSymbol> queue)
+	{
+		var propertyType = UnwrapNullable(property.Type);
+
+		if (IsResultType(propertyType, wellKnown.ResultType))
+		{
+			Report(context, property, declaringType, serviceInterface, operation);
+			return;
+		}
+
+		if (IsEnumerableItem(propertyType, wellKnown.EnumerableOpen, out var itemType))
+		{
+			var unwrappedItem = UnwrapNullable(itemType);
+			if (IsResultType(unwrappedItem, wellKnown.ResultType))
+			{
+				Report(context, property, declaringType, serviceInterface, operation);
+				return;
+			}
+
+			EnqueueComplex(unwrappedItem, wellKnown, visited, queue);
+			return;
+		}
+
+		EnqueueComplex(propertyType, wellKnown, visited, queue);
 	}
 
 	/// <summary>Unwraps zero-or-one <c>Task&lt;T&gt;</c>/<c>ValueTask&lt;T&gt;</c> layer, then requires exactly <c>Outcome&lt;T&gt;</c> — the platform's one confirmed wire-method shape (verified against real production <c>[ServiceContract]</c> interfaces, e.g. Heimdall's <c>IAuthenticationService</c>, Mímir's <c>IReferenceService</c>). Any other shape yields no payload — nothing for this analyzer to police.</summary>
@@ -68,18 +93,16 @@ static class ResponseClosureWalker
 		return null;
 	}
 
-	static void EnqueueReachable(ITypeSymbol propertyType, WellKnownTypes wellKnown, HashSet<INamedTypeSymbol> visited, Queue<INamedTypeSymbol> queue)
-	{
-		if (IsEnumerableItem(propertyType, wellKnown.EnumerableOpen, out var itemType))
-		{
-			EnqueueComplex(UnwrapNullable(itemType), wellKnown, visited, queue);
-			return;
-		}
-
-		EnqueueComplex(propertyType, wellKnown, visited, queue);
-	}
-
-	/// <summary>Adds a class/struct type to the walk queue unless it's a terminal scalar, <c>Result&lt;T&gt;</c> itself (nested inside a collection — out of the literal law's scope, and its own members are irrelevant noise), or already visited (the cycle guard).</summary>
+	/// <summary>
+	/// Adds a class/struct type to the walk queue unless it's a terminal scalar or already visited (the
+	/// cycle guard). By the time a type reaches this method it has already cleared <see cref="ProcessProperty"/>'s
+	/// own <c>Result&lt;T&gt;</c> check (direct or one collection layer deep) and been diagnosed there
+	/// instead of enqueued — the <c>!IsResultType</c> guard below is a defensive backstop against a future
+	/// caller reaching this method without that check, never the primary place <c>Result&lt;T&gt;</c> gets
+	/// caught. <c>Result&lt;T&gt;</c> is never silently dropped on this path: either it's diagnosed before
+	/// this call, or (if it somehow arrives here anyway) it's excluded from the queue rather than walked
+	/// into for irrelevant internal members — it is never simply ignored.
+	/// </summary>
 	static void EnqueueComplex(ITypeSymbol type, WellKnownTypes wellKnown, HashSet<INamedTypeSymbol> visited, Queue<INamedTypeSymbol> queue)
 	{
 		if (type is INamedTypeSymbol { TypeKind: TypeKind.Class or TypeKind.Struct } complex &&

@@ -168,6 +168,84 @@ public sealed class ResultInServiceResponseAnalyzerTests
 	}
 
 	[Fact]
+	async Task Fires_on_a_property_whose_collection_item_type_is_itself_Result()
+	{
+		// The item type IS Result<T> — distinct from the previous test, where the item type is a
+		// [DataContract] that merely CONTAINS a Result<T> property. List<Result<T>> compiles clean
+		// without this: EnqueueComplex previously discarded a Result<T> item silently rather than
+		// diagnosing it, and Midgard's narrower NORSE027 doesn't catch it either (Result<T> is a
+		// struct, so ClosureWalker.Classify() takes the complex-item branch, not the raw-scalar one).
+		const string Fixture = """
+			using System.Collections.Generic;
+			using System.Runtime.Serialization;
+			using System.ServiceModel;
+			using System.Threading;
+			using System.Threading.Tasks;
+			using Norse.Abstractions.Contracts;
+			using Norse.Primitives;
+
+			namespace Norse.Fixtures.CollectionOfResult;
+
+			[DataContract]
+			public sealed record BadResponse
+			{
+				[DataMember(Order = 1)]
+				public List<Result<int>> Totals { get; init; } = new();
+			}
+
+			[ServiceContract(Name = "grpc.fixtures.v1.CollectionOfResultService")]
+			public interface ICollectionOfResultService
+			{
+				[OperationContract]
+				Task<Outcome<BadResponse>> DoAsync(CancellationToken cancellationToken = default);
+			}
+			""";
+
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(Fixture);
+
+		var diagnostic = diagnostics.ShouldHaveSingleItem();
+		diagnostic.Id.ShouldBe("NORSE060");
+		SourceAt(Fixture, diagnostic).ShouldBe("Totals");
+	}
+
+	[Fact]
+	async Task Fires_on_an_array_property_whose_element_type_is_itself_Result()
+	{
+		// Arrays are a distinct code path from List<T> in the walker — they satisfy IEnumerable<T> via
+		// AllInterfaces rather than a direct OriginalDefinition match against the open IEnumerable<T>.
+		const string Fixture = """
+			using System.Runtime.Serialization;
+			using System.ServiceModel;
+			using System.Threading;
+			using System.Threading.Tasks;
+			using Norse.Abstractions.Contracts;
+			using Norse.Primitives;
+
+			namespace Norse.Fixtures.ArrayOfResult;
+
+			[DataContract]
+			public sealed record BadResponse
+			{
+				[DataMember(Order = 1)]
+				public Result<int>[] Totals { get; init; } = System.Array.Empty<Result<int>>();
+			}
+
+			[ServiceContract(Name = "grpc.fixtures.v1.ArrayOfResultService")]
+			public interface IArrayOfResultService
+			{
+				[OperationContract]
+				Task<Outcome<BadResponse>> DoAsync(CancellationToken cancellationToken = default);
+			}
+			""";
+
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(Fixture);
+
+		var diagnostic = diagnostics.ShouldHaveSingleItem();
+		diagnostic.Id.ShouldBe("NORSE060");
+		SourceAt(Fixture, diagnostic).ShouldBe("Totals");
+	}
+
+	[Fact]
 	async Task Does_not_fire_when_Result_appears_only_on_the_request_parameter_type()
 	{
 		const string Fixture = """
