@@ -5,5 +5,20 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<SupportedPlatform Include="browser" />
+		<ProjectReference
+			Include="../../gen/Primitives.Analyzers/Primitives.Analyzers.csproj"
+			OutputItemType="Analyzer"
+			ReferenceOutputAssembly="false" />
 	</ItemGroup>
+	<Target Name="IncludeGeneratorInPackage" BeforeTargets="_GetPackageFiles">
+		<MSBuild Projects="../../gen/Primitives.Analyzers/Primitives.Analyzers.csproj"
+			Targets="Build"
+			Properties="Configuration=$(Configuration)" />
+		<ItemGroup>
+			<None Include="../../gen/Primitives.Analyzers/bin/$(Configuration)/netstandard2.0/Norse.Primitives.Analyzers.dll"
+				Pack="true"
+				PackagePath="analyzers/dotnet/cs/"
+				Visible="false" />
+		</ItemGroup>
+	</Target>
 </Project>

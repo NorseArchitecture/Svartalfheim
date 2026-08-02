@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<Description>Norse.Primitives.Analyzers: NORSE060 — Result&lt;T&gt; must never appear as a property type reachable from a [ServiceContract]/[OperationContract] method's response payload (unwrapped through Task&lt;T&gt;/ValueTask&lt;T&gt; and Outcome&lt;T&gt;). Result&lt;T&gt; is deserialization-only; a companion fix makes its write path throw unconditionally on every channel, so this pushes that failure to compile time, in the IDE, before a contract carrying the mistake can ever be built. Bundled into Norse.Primitives's package (analyzers/dotnet/cs/), never referenced or packed standalone.</Description>
+	</PropertyGroup>
+</Project>

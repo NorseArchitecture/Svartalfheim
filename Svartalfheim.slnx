@@ -11,6 +11,9 @@
 		<File Path="benchmarks/Directory.Build.props" />
 		<Project Path="benchmarks/Primitives.Benchmarks/Primitives.Benchmarks.csproj" />
 	</Folder>
+	<Folder Name="/gen/">
+		<Project Path="gen/Primitives.Analyzers/Primitives.Analyzers.csproj" />
+	</Folder>
 	<Folder Name="/src/">
 		<Project Path="src/Primitives/Primitives.csproj" />
 		<Project Path="src/Primitives.Ingestion/Primitives.Ingestion.csproj" />
@@ -20,6 +23,7 @@
 		<File Path="tests/smoke/Directory.Build.props" />
 		<Project Path="tests/Primitives.Tests/Primitives.Tests.csproj" />
 		<Project Path="tests/Primitives.Ingestion.Tests/Primitives.Ingestion.Tests.csproj" />
+		<Project Path="tests/Primitives.Analyzers.Tests/Primitives.Analyzers.Tests.csproj" />
 		<Project Path="tests/smoke/Primitives.Aot.Smoke/Primitives.Aot.Smoke.csproj" />
 		<Project Path="tests/smoke/Primitives.Ingestion.Aot.Smoke/Primitives.Ingestion.Aot.Smoke.csproj" />
 	</Folder>
