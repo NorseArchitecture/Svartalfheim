@@ -8,7 +8,7 @@ namespace Norse.Architecture.Analyzers;
 /// NORSE070-079 — the architecture-law block, claimed 2026-08-03 (grep-confirmed clean at authoring;
 /// the authoritative per-block ledger lives in Primitives.Analyzers' Diagnostics.cs header). All four
 /// strikes are NotConfigurable errors: the law is not a severity preference, and no consuming realm
-/// may downgrade it. Spec: Glitnir docs/Platform/specs/2026-08-03-realm-dependency-law-compiler-enforcement-design.md.
+/// may downgrade it. Spec: ../Glitnir/docs/Platform/specs/2026-08-03-realm-dependency-law-compiler-enforcement-design.md.
 /// </summary>
 static class Diagnostics
 {
