@@ -22,15 +22,15 @@ static class Diagnostics
 	public static readonly DiagnosticDescriptor MidgardTakenAsDependency = new(
 		"NORSE071", "Midgard taken as a dependency",
 		"Assembly '{0}' references '{1}' — Infrastructure (Midgard) is consumed by Hosting (Yggdrasil) alone and publishes no surface; no realm takes Midgard as a dependency", Category,
-		DiagnosticSeverity.Error, isEnabledByDefault: true, customTags: WellKnownDiagnosticTags.NotConfigurable);
+		DiagnosticSeverity.Error, isEnabledByDefault: true, customTags: [WellKnownDiagnosticTags.NotConfigurable, WellKnownDiagnosticTags.CompilationEnd]);
 
 	public static readonly DiagnosticDescriptor CrossRealmReach = new(
 		"NORSE072", "Cross-realm reach outside published surfaces",
 		"Assembly '{0}' references '{1}' — {2}; realms are bounded contexts whose only doors are .Contracts, .Services, and .Components", Category,
-		DiagnosticSeverity.Error, isEnabledByDefault: true, customTags: WellKnownDiagnosticTags.NotConfigurable);
+		DiagnosticSeverity.Error, isEnabledByDefault: true, customTags: [WellKnownDiagnosticTags.NotConfigurable, WellKnownDiagnosticTags.CompilationEnd]);
 
 	public static readonly DiagnosticDescriptor ComponentImpurity = new(
 		"NORSE073", "Component assembly impurity",
 		"Component assembly '{0}' references '{1}' — .Components consumes foundation and published surfaces only, even within its own realm, so render mode stays a deployment detail", Category,
-		DiagnosticSeverity.Error, isEnabledByDefault: true, customTags: WellKnownDiagnosticTags.NotConfigurable);
+		DiagnosticSeverity.Error, isEnabledByDefault: true, customTags: [WellKnownDiagnosticTags.NotConfigurable, WellKnownDiagnosticTags.CompilationEnd]);
 }
