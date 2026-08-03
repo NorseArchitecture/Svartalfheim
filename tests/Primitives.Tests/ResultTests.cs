@@ -176,4 +176,32 @@ public sealed class ResultTests
 		result.ShouldBe(same);
 		default(Result<string>).HasValue.ShouldBeFalse();
 	}
+
+	[Fact]
+	void Should_wrap_as_success_when_assigned_implicitly_from_value()
+	{
+		Result<int> result = 42;
+
+		result.TryGetValue(out Success<int> success).ShouldBeTrue();
+		success.Value.ShouldBe(42);
+	}
+
+	[Fact]
+	void Should_lift_to_nullable_result_when_assigned_implicitly()
+	{
+		Result<decimal>? result = 1234.56m;
+
+		result.HasValue.ShouldBeTrue();
+		result.Value.TryGetValue(out Success<decimal> success).ShouldBeTrue();
+		success.Value.ShouldBe(1234.56m);
+	}
+
+	[Fact]
+	void Should_wrap_string_as_success_when_assigned_implicitly()
+	{
+		Result<string> result = "Bifrost";
+
+		result.TryGetValue(out Success<string> success).ShouldBeTrue();
+		success.Value.ShouldBe("Bifrost");
+	}
 }

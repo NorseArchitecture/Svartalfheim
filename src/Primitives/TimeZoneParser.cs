@@ -47,7 +47,7 @@ public static class TimeZoneParser
 	{
 		var trimmed = input.Trim();
 		return trimmed.IsEmpty ?
-			null :
+			(Result<TimeZoneInfo>?)null :
 			Resolve(trimmed);
 	}
 
