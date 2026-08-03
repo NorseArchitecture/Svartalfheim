@@ -111,6 +111,49 @@ public sealed class WireFormatAnalyzerTests
 	}
 
 	[Fact]
+	async Task Strikes_a_fully_qualified_type_in_a_declaration_context()
+	{
+		// A field declaration produces QualifiedNameSyntax — no operation fires for it, so this
+		// is the one layer-2 proof: delete AnalyzeQualifiedName and this test goes red.
+		var source =
+			"""
+			namespace App;
+
+			sealed class Holder
+			{
+				System.Text.Json.JsonSerializerOptions? _options;
+
+				public object? Peek() =>
+					_options;
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(
+			new WireFormatAnalyzer(), "Norse.Identity.Web.Server", [], source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE070");
+	}
+
+	[Fact]
+	async Task Dedupes_a_fully_qualified_new_of_a_banned_type()
+	{
+		// new System.Text.Json.JsonSerializerOptions() should fire exactly ONE NORSE070,
+		// not two (QualifiedName layer + Operation layer). The operation layer owns the report
+		// for object creations; QualifiedName skips when the parent is ObjectCreationExpressionSyntax.
+		var source =
+			"""
+			namespace App;
+
+			sealed class Holder
+			{
+				public object? Create() =>
+					new System.Text.Json.JsonSerializerOptions();
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(
+			new WireFormatAnalyzer(), "Norse.Identity.Web.Server", [], source);
+		diagnostics.Count(d => d.Id == "NORSE070").ShouldBe(1);
+	}
+
+	[Fact]
 	async Task Strikes_the_banned_typed_results_json_symbol()
 	{
 		// Results.Json/TypedResults.Json live in innocent namespaces — symbol-level ban (spec §4).

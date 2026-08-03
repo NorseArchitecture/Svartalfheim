@@ -64,8 +64,10 @@ public sealed class WireFormatAnalyzer : DiagnosticAnalyzer
 	{
 		// Using directives are handled (and reported once) above; skip their interior nodes. Also skip
 		// inner QualifiedName nodes whose parent is a longer QualifiedName — only the outermost reports.
+		// Additionally, skip when the qualified name is the type of an ObjectCreationExpressionSyntax —
+		// the operation layer owns that report and will fire once; skipping here dedupes.
 		var node = (QualifiedNameSyntax)context.Node;
-		if (node.Parent is QualifiedNameSyntax || node.FirstAncestorOrSelf<UsingDirectiveSyntax>() is not null)
+		if (node.Parent is QualifiedNameSyntax or ObjectCreationExpressionSyntax || node.FirstAncestorOrSelf<UsingDirectiveSyntax>() is not null)
 			return;
 		var text = node.ToString();
 		if (MatchesBannedRoot(text))
