@@ -178,7 +178,7 @@ public sealed class ResultTests
 	}
 
 	[Fact]
-	void Implicit_conversion_from_value_is_the_success_case()
+	void Should_wrap_as_success_when_assigned_implicitly_from_value()
 	{
 		Result<int> result = 42;
 
@@ -187,7 +187,7 @@ public sealed class ResultTests
 	}
 
 	[Fact]
-	void Implicit_conversion_lifts_to_nullable_result()
+	void Should_lift_to_nullable_result_when_assigned_implicitly()
 	{
 		Result<decimal>? result = 1234.56m;
 
@@ -197,7 +197,7 @@ public sealed class ResultTests
 	}
 
 	[Fact]
-	void Implicit_conversion_from_string_is_the_success_case()
+	void Should_wrap_string_as_success_when_assigned_implicitly()
 	{
 		Result<string> result = "Bifrost";
 
