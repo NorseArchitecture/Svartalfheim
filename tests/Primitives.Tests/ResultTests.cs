@@ -176,4 +176,32 @@ public sealed class ResultTests
 		result.ShouldBe(same);
 		default(Result<string>).HasValue.ShouldBeFalse();
 	}
+
+	[Fact]
+	void Implicit_conversion_from_value_is_the_success_case()
+	{
+		Result<int> result = 42;
+
+		result.TryGetValue(out Success<int> success).ShouldBeTrue();
+		success.Value.ShouldBe(42);
+	}
+
+	[Fact]
+	void Implicit_conversion_lifts_to_nullable_result()
+	{
+		Result<decimal>? result = 1234.56m;
+
+		result.HasValue.ShouldBeTrue();
+		result.Value.TryGetValue(out Success<decimal> success).ShouldBeTrue();
+		success.Value.ShouldBe(1234.56m);
+	}
+
+	[Fact]
+	void Implicit_conversion_from_string_is_the_success_case()
+	{
+		Result<string> result = "Bifrost";
+
+		result.TryGetValue(out Success<string> success).ShouldBeTrue();
+		success.Value.ShouldBe("Bifrost");
+	}
 }

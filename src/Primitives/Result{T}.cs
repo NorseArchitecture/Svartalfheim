@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Norse.Primitives;
@@ -65,6 +66,18 @@ public readonly record struct Result<T> : IUnion where T : notnull
 		_failure = value;
 		_state = State.Failure;
 	}
+
+	/// <summary>
+	/// Wraps a validated value as the success case. The second legitimate author of the union
+	/// (spec 2026-08-02-result-success-unwrap-on-serialize §2): a first-party client holding a
+	/// compile-time-typed value states it as plain assignment.
+	/// </summary>
+	/// <param name="value">The validated value.</param>
+	[SuppressMessage("Usage", "CA2225:Operator overloads have named alternates",
+		Justification =
+			"Deliberately narrow public surface: this union's starved API is the design, and a named FromT/ToResult alternate would widen the surface the type exists to narrow. Construction ergonomics -- plain assignment for a first-party client holding a compile-time-typed value -- is this operator's whole purpose.")]
+	public static implicit operator Result<T>(T value) =>
+		new(new Success<T>(value));
 
 	/// <summary>
 	/// The boxed case contents, or <see langword="null"/> for a defaulted value.
