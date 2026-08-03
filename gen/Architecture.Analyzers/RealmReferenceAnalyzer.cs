@@ -66,7 +66,14 @@ public sealed class RealmReferenceAnalyzer : DiagnosticAnalyzer
 					continue;
 				}
 
-				// Task 5 fills the .Components stricture here (NORSE073).
+				if (isComponents)
+				{
+					if (RealmIdentity.IsFoundation(target, brand) || RealmIdentity.IsPublishedSurface(target))
+						continue;
+					compilationContext.ReportDiagnostic(Diagnostic.Create(
+						Diagnostics.ComponentImpurity, Location.None, self, target));
+					continue;
+				}
 
 				if (RealmIdentity.IsFoundation(target, brand) || sameFamily ||
 					RealmIdentity.IsPublishedSurface(target) || selfFunction == "Hosting")
