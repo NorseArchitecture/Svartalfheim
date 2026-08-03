@@ -6,9 +6,10 @@ namespace Norse.Architecture.Analyzers;
 
 /// <summary>
 /// NORSE070-079 — the architecture-law block, claimed 2026-08-03 (grep-confirmed clean at authoring;
-/// the authoritative per-block ledger lives in Primitives.Analyzers' Diagnostics.cs header). All four
-/// strikes are NotConfigurable errors: the law is not a severity preference, and no consuming realm
-/// may downgrade it. Spec: ../Glitnir/docs/Platform/specs/2026-08-03-realm-dependency-law-compiler-enforcement-design.md.
+/// the authoritative per-block ledger lives in Primitives.Analyzers' Diagnostics.cs header). NORSE079,
+/// the meta-strike against suppressing any of the above, is now claimed too. All five strikes are
+/// NotConfigurable errors: the law is not a severity preference, and no consuming realm may downgrade
+/// it. Spec: ../Glitnir/docs/Platform/specs/2026-08-03-realm-dependency-law-compiler-enforcement-design.md.
 /// </summary>
 static class Diagnostics
 {
@@ -33,4 +34,9 @@ static class Diagnostics
 		"NORSE073", "Component assembly impurity",
 		"Component assembly '{0}' references '{1}' — .Components consumes foundation and published surfaces only, even within its own realm, so render mode stays a deployment detail", Category,
 		DiagnosticSeverity.Error, isEnabledByDefault: true, customTags: [WellKnownDiagnosticTags.NotConfigurable, WellKnownDiagnosticTags.CompilationEnd]);
+
+	public static readonly DiagnosticDescriptor SuppressingTheLaw = new(
+		"NORSE079", "Suppressing the law",
+		"[SuppressMessage] targeting '{0}' — suppressing the Law of the Realms is itself a violation; remove the attribute", Category,
+		DiagnosticSeverity.Error, isEnabledByDefault: true, customTags: WellKnownDiagnosticTags.NotConfigurable);
 }
