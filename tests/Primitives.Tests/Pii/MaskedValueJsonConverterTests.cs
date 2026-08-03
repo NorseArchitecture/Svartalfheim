@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Norse.Primitives.Pii;
 
 namespace Norse.Primitives.Tests.Pii;
 

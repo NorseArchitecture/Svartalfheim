@@ -1,6 +1,4 @@
-#pragma warning disable IDE0130 // Namespace does not match folder structure — PII types in flat namespace for Roslyn analyzer resolution.
-namespace Norse.Primitives;
-#pragma warning restore IDE0130
+namespace Norse.Primitives.Pii;
 
 /// <summary>The declared legal basis under which a persisted PII field is retained.</summary>
 public enum RetentionBasis : byte
