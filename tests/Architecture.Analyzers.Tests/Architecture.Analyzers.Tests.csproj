@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="*" PrivateAssets="all" />
+		<!-- Overrides a known-vulnerable transitive version pulled in by System.ServiceModel.Primitives — mirrors Heimdall's AuthN.Services.csproj. -->
+		<PackageReference Include="System.Security.Cryptography.Xml" Version="11.*-*" />
+		<PackageReference Include="System.ServiceModel.Primitives" Version="10.*" />
+		<ProjectReference Include="../../gen/Architecture.Analyzers/Architecture.Analyzers.csproj" />
+	</ItemGroup>
+</Project>
