@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Norse.Primitives.Pii;
+#pragma warning disable IDE0130 // Namespace does not match folder structure — PII types in flat namespace for Roslyn analyzer resolution.
+namespace Norse.Primitives;
+#pragma warning restore IDE0130
 
 /// <summary>
 /// Defense-in-depth for serialization paths the analyzer cannot see: writes the masked rendering,

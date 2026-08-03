@@ -1,5 +1,3 @@
-using Norse.Primitives.Pii;
-
 namespace Norse.Primitives.Tests.Pii;
 
 public sealed class RetentionPolicyAttributeTests
