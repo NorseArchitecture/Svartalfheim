@@ -47,9 +47,21 @@ public sealed class ComponentPurityTests
 	async Task A_components_fluentui_drop_is_not_itself_a_components_assembly()
 	{
 		// Norse.AuthN.Components.FluentUI does not end ".Components" — it is governed by the general
-		// formula (own realm legal), not the purity stricture. Deliberate: vendor drops may reference
-		// their sibling base Components assembly and vendor packages freely.
+		// formula (own realm legal), not the purity stricture. Since the 2026-08-03 vendor-drop door
+		// ruling, a Components vendor drop is also a published-surface TARGET in its own right (the
+		// ".Components." segment widening on RealmIdentity.IsPublishedSurface) — so it's reachable from
+		// any realm under the general formula, not only via its own realm or the foundation tree.
 		(await RunAsync("Norse.AuthN.Components.FluentUI", "Norse.Abstractions.Contracts", "Norse.AuthN.Components"))
+			.ShouldBeEmpty();
+	}
+
+	[Fact]
+	async Task A_server_realm_may_reference_a_sibling_components_vendor_drop()
+	{
+		// The exact Himinbjörg/Bragi shape from master: a server assembly (or an anchor referencing it)
+		// takes a Components vendor drop as a dependency. Legal under the general formula's
+		// published-surface arm now that ".Components." widening makes the drop a door.
+		(await RunAsync("Norse.Identity.Web.Server", "Norse.Primitives", "Norse.AuthN.Components.FluentUI"))
 			.ShouldBeEmpty();
 	}
 }

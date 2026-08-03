@@ -49,7 +49,8 @@ static class RealmIdentity
 	}
 
 	public static bool IsPublishedSurface(string assemblyName) =>
-		_publishedSurfaceSuffixes.Any(s => assemblyName.EndsWith(s, StringComparison.Ordinal));
+		_publishedSurfaceSuffixes.Any(s => assemblyName.EndsWith(s, StringComparison.Ordinal)) ||
+		assemblyName.Contains(".Components.", StringComparison.Ordinal);
 
 	public static bool IsFoundation(string assemblyName, string brand) =>
 		FamilyOf(assemblyName, brand) is { } family &&

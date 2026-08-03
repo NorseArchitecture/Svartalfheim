@@ -48,7 +48,12 @@ public sealed class RealmIdentityTests
 	[InlineData("Norse.AuthN.Contracts", true)]
 	[InlineData("Norse.AuthN.Services", true)]
 	[InlineData("Norse.AuthN.Components", true)]
-	[InlineData("Norse.AuthN.Components.FluentUI", false)]
+	// The vendor-drop door ruling (2026-08-03 final review): FluentUI will always be part of the
+	// dependency tree, especially in Bragi, so a Components vendor drop is itself a legal reference
+	// target — the ".Components." segment widening covers it. NORSE073's own stricture is unaffected:
+	// it still keys on the exact ".Components" suffix, so a drop stays out of reach for the purity
+	// check even though it now counts as a published surface for the general reference formula.
+	[InlineData("Norse.AuthN.Components.FluentUI", true)]
 	[InlineData("Norse.Identity.EntityFramework", false)]
 	void Published_surfaces_are_contracts_services_components(string name, bool expected) =>
 		RealmIdentity.IsPublishedSurface(name).ShouldBe(expected);
