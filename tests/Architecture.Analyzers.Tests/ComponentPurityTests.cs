@@ -64,4 +64,18 @@ public sealed class ComponentPurityTests
 		(await RunAsync("Norse.Identity.Web.Server", "Norse.Primitives", "Norse.AuthN.Components.FluentUI"))
 			.ShouldBeEmpty();
 	}
+
+	[Fact]
+	async Task The_trees_own_components_are_exempt_from_the_stricture()
+	{
+		// Ruled 2026-08-03: Hosting is THE composition root — rule 4 precedes the component
+		// stricture; NORSE073 governs realm component RCLs, never the tree's own. The exact
+		// live shape that surfaced the ruling: Hosting.Web.Components → Reference.Data.Primitives.
+		(await RunAsync("Norse.Hosting.Web.Components", "Norse.Abstractions.Contracts", "Norse.Reference.Data.Primitives"))
+			.ShouldBeEmpty();
+
+		// The realm-side stricture is unchanged: same target, non-Hosting components source, still strikes.
+		(await RunAsync("Norse.AuthN.Components", "Norse.Abstractions.Contracts", "Norse.Reference.Data.Primitives"))
+			.ShouldContain(d => d.Id == "NORSE073");
+	}
 }
