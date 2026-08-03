@@ -11,7 +11,10 @@ namespace Norse.Architecture.Analyzers;
 /// source, target, and the failed arms, so a transitive strike costs a glance, not an archaeology dig.
 /// Brand is the compilation's own anchor when its name carries a vocabulary segment, otherwise
 /// inferred from the first referenced assembly whose anchor-derived brand prefixes the compilation's
-/// name. Cross-brand and non-Norse references are ungoverned — deliberate and recorded.
+/// name. Cross-brand and non-Norse references are ungoverned — deliberate and recorded. NORSE073
+/// governs realm component RCLs only — ruled 2026-08-03, rule 4 (the tree) precedes the component
+/// stricture, so <c>{Brand}.Hosting.*</c> assemblies are exempt: hosting is the composition root and
+/// may pull in whatever it wants.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RealmReferenceAnalyzer : DiagnosticAnalyzer
@@ -40,7 +43,7 @@ public sealed class RealmReferenceAnalyzer : DiagnosticAnalyzer
 
 			var selfFunction = RealmIdentity.FunctionOf(self);
 			var selfFamily = RealmIdentity.FamilyOf(self, brand);
-			var isComponents = self.EndsWith(".Components", StringComparison.Ordinal);
+			var isComponents = selfFunction != "Hosting" && self.EndsWith(".Components", StringComparison.Ordinal);
 
 			foreach (var target in references)
 			{
