@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<Description>Norse.Architecture.Analyzers: the Law of the Realms. NORSE070 wire format never leaves Midgard/Yggdrasil (contract attributes are blessed declarations of intent; anything naming or executing a concrete encoding is not); NORSE071 Midgard is consumed by the world tree alone; NORSE072 realms are bounded contexts whose only doors are published surfaces (.Contracts/.Services/.Components); NORSE073 component RCLs stay platform-free. Jurisdiction derives entirely from assembly names — no configuration exists, and none is honored. Delivered to every realm by the Ginnungagap scatter; packed standalone (analyzers/dotnet/cs) because bundling into Norse.Primitives cannot reach Asgard.</Description>
+		<IsPackable>true</IsPackable>
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+	</PropertyGroup>
+	<ItemGroup>
+		<None Include="bin/$(Configuration)/netstandard2.0/$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs/" Visible="false" />
+	</ItemGroup>
+</Project>

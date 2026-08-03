@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="*" PrivateAssets="all" />
+		<ProjectReference Include="../../gen/Architecture.Analyzers/Architecture.Analyzers.csproj" />
+	</ItemGroup>
+</Project>

@@ -7,7 +7,8 @@ namespace Norse.Primitives.Analyzers;
 /// <summary>
 /// NORSE060 opens a new decade for Svartálfheim — the platform's existing per-block convention
 /// (NORSE010 Asgard, NORSE011 Yggdrasil, NORSE020-021/NORSE022-028 Midgard, NORSE030-034 Urðarbrunnr,
-/// NORSE040-049 reserved on paper for the well-seam-midgard-excision plan, NORSE050-051 Mímisbrunnr).
+/// NORSE040-049 reserved on paper for the well-seam-midgard-excision plan, NORSE050-051 Mímisbrunnr — and
+/// NORSE070-079 now claimed for the architecture-law block (Architecture.Analyzers, 2026-08-03)).
 /// A fresh platform-wide grep at authoring time confirmed NORSE052-NORSE059 clean.
 /// </summary>
 static class Diagnostics
