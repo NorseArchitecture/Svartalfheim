@@ -211,6 +211,81 @@ public sealed class WireFormatAnalyzerTests
 	}
 
 	[Fact]
+	async Task Stays_silent_for_a_banned_type_named_only_in_a_doc_comment_cref()
+	{
+		// DocumentationMode.Diagnose so the parser actually produces the cref's structured-trivia
+		// QualifiedNameSyntax under test — the harness default (Parse) does not bind/expose it the same
+		// way and would make this fixture pass for the wrong reason (node never visited at all).
+		var source =
+			"""
+			namespace App;
+
+			/// <summary>See <see cref="System.Xml.XmlReader"/>.</summary>
+			sealed class Innocent
+			{
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(
+			new WireFormatAnalyzer(), "Norse.Identity.Web.Server", AnalyzerTestHarness.ParseOptions.WithDocumentationMode(DocumentationMode.Diagnose), [], source);
+		diagnostics.ShouldBeEmpty();
+	}
+
+	[Fact]
+	async Task Strikes_norse070_on_a_global_qualified_field_declaration()
+	{
+		var source =
+			"""
+			namespace App;
+
+			sealed class Holder
+			{
+				global::System.Text.Json.JsonSerializerOptions? _options;
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(
+			new WireFormatAnalyzer(), "Norse.Identity.Web.Server", [], source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE070");
+	}
+
+	[Fact]
+	async Task Strikes_norse070_on_a_global_qualified_alias_using()
+	{
+		var source =
+			"""
+			using Codec = global::System.Text.Json.JsonSerializer;
+
+			namespace App;
+
+			static class Leak
+			{
+				public static string Emit(object value) =>
+					Codec.Serialize(value);
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(
+			new WireFormatAnalyzer(), "Norse.Identity.Web.Server", [], source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE070");
+	}
+
+	[Fact]
+	async Task Strikes_exactly_one_norse070_on_a_bare_property_reference_with_no_invocation()
+	{
+		var source =
+			"""
+			namespace App;
+
+			sealed class Holder
+			{
+				public object Peek() =>
+					System.Text.Json.JsonSerializerOptions.Default;
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(
+			new WireFormatAnalyzer(), "Norse.Identity.Web.Server", [], source);
+		diagnostics.Count(d => d.Id == "NORSE070").ShouldBe(1);
+	}
+
+	[Fact]
 	async Task Regression_the_forge_conviction_shape_strikes()
 	{
 		// Day-one conviction #1/#2 (spec §6): a JsonConverter living below the border.

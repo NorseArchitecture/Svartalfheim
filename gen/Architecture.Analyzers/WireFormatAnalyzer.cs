@@ -12,7 +12,11 @@ namespace Norse.Architecture.Analyzers;
 /// Infrastructure/Hosting alone. Brand-blind — evaluated on the function segments of the compilation's
 /// assembly name, so an anchorless .Contracts assembly with zero governed references is still governed.
 /// Three layers: using directives (aliases and global usings included), qualified names, and
-/// banned-symbol operations so alias-laundered use still strikes. Contract attributes are blessed by
+/// banned-symbol operations (invocations, object creations, and property/field/method references, so a
+/// bare `JsonSerializerOptions.Default` touch strikes with no invocation in sight) so alias-laundered use
+/// still strikes. A leading <c>global::</c> is stripped before matching on both the using-directive and
+/// qualified-name paths — the qualifier changes nothing about what's actually being named. Doc-comment
+/// crefs are exempted (structured trivia never executes). Contract attributes are blessed by
 /// construction: System.Runtime.Serialization and System.ServiceModel are not on the banned-root list —
 /// only their serializer machinery is, by symbol.
 /// </summary>
@@ -34,8 +38,16 @@ public sealed class WireFormatAnalyzer : DiagnosticAnalyzer
 		("Microsoft.AspNetCore.Http.TypedResults", "Json")
 	];
 
-	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+	// Perf hygiene: the cheap gate every layer runs before touching ToString()/ToDisplayString() — every
+	// banned root and every banned symbol lives under one of these top-level segments.
+	static readonly ImmutableHashSet<string> _mightBeBannedRoots =
+		["System", "Newtonsoft", "ProtoBuf", "Grpc", "Google", "MessagePack", "Microsoft"];
+
+	static readonly ImmutableArray<DiagnosticDescriptor> _supportedDiagnostics =
 		[Diagnostics.WireFormatOutsideBorder];
+
+	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+		_supportedDiagnostics;
 
 	public override void Initialize(AnalysisContext context)
 	{
@@ -48,20 +60,28 @@ public sealed class WireFormatAnalyzer : DiagnosticAnalyzer
 				return;
 			start.RegisterSyntaxNodeAction(AnalyzeUsing, SyntaxKind.UsingDirective);
 			start.RegisterSyntaxNodeAction(AnalyzeQualifiedName, SyntaxKind.QualifiedName);
-			start.RegisterOperationAction(AnalyzeOperation, OperationKind.Invocation, OperationKind.ObjectCreation);
+			start.RegisterOperationAction(
+				AnalyzeOperation, OperationKind.Invocation, OperationKind.ObjectCreation,
+				OperationKind.PropertyReference, OperationKind.FieldReference, OperationKind.MethodReference);
 		});
 	}
 
 	static void AnalyzeUsing(SyntaxNodeAnalysisContext context)
 	{
 		var directive = (UsingDirectiveSyntax)context.Node;
-		var name = directive.Name?.ToString();
-		if (name is not null && MatchesBannedRoot(name))
+		if (directive.Name?.ToString() is not { } rawName)
+			return;
+		var name = StripGlobalAlias(rawName);
+		if (MatchesBannedRoot(name))
 			Report(context, directive.GetLocation(), name);
 	}
 
 	static void AnalyzeQualifiedName(SyntaxNodeAnalysisContext context)
 	{
+		// Doc-comment crefs (<see cref="..."/>) live in structured trivia — a genuine reference to a
+		// banned type there is documentation, not wire-format machinery, and never executes.
+		if (context.Node.IsPartOfStructuredTrivia())
+			return;
 		// Using directives are handled (and reported once) above; skip their interior nodes. Also skip
 		// inner QualifiedName nodes whose parent is a longer QualifiedName — only the outermost reports.
 		// Additionally, skip when the qualified name is the type of an ObjectCreationExpressionSyntax —
@@ -69,7 +89,11 @@ public sealed class WireFormatAnalyzer : DiagnosticAnalyzer
 		var node = (QualifiedNameSyntax)context.Node;
 		if (node.Parent is QualifiedNameSyntax or ObjectCreationExpressionSyntax || node.FirstAncestorOrSelf<UsingDirectiveSyntax>() is not null)
 			return;
-		var text = node.ToString();
+		// Perf hygiene: skip the ToString() allocation entirely unless the leftmost identifier could
+		// possibly resolve to a banned root.
+		if (LeftmostIdentifier(node) is not { } leftmost || !MightBeBanned(leftmost))
+			return;
+		var text = StripGlobalAlias(node.ToString());
 		if (MatchesBannedRoot(text))
 			Report(context, node.GetLocation(), text);
 	}
@@ -80,9 +104,16 @@ public sealed class WireFormatAnalyzer : DiagnosticAnalyzer
 		{
 			IInvocationOperation invocation => ((ISymbol)invocation.TargetMethod, invocation.Syntax.GetLocation()),
 			IObjectCreationOperation { Constructor: { } ctor } creation => (ctor, creation.Syntax.GetLocation()),
+			IPropertyReferenceOperation propertyReference => (propertyReference.Property, propertyReference.Syntax.GetLocation()),
+			IFieldReferenceOperation fieldReference => (fieldReference.Field, fieldReference.Syntax.GetLocation()),
+			IMethodReferenceOperation methodReference => (methodReference.Method, methodReference.Syntax.GetLocation()),
 			_ => (null!, null!)
 		};
 		if (symbol is null)
+			return;
+		// Perf hygiene: the containing namespace's root segment gates the expensive ToDisplayString()
+		// calls below — every _bannedSymbols entry lives under System or Microsoft, both covered.
+		if (RootNamespaceSegment(symbol.ContainingNamespace) is not { } rootSegment || !MightBeBanned(rootSegment))
 			return;
 		var containingType = symbol.ContainingType?.ToDisplayString();
 		var containingNamespace = symbol.ContainingNamespace?.ToDisplayString() ?? "";
@@ -97,6 +128,36 @@ public sealed class WireFormatAnalyzer : DiagnosticAnalyzer
 		_bannedRoots.Any(root =>
 			name.StartsWith(root, StringComparison.Ordinal) &&
 			(name.Length == root.Length || name[root.Length] == '.'));
+
+	static bool MightBeBanned(string leftmostIdentifier) =>
+		_mightBeBannedRoots.Contains(leftmostIdentifier);
+
+	// Substring, not a range indexer: this project targets netstandard2.0 (the Roslyn analyzer-host
+	// constraint), which carries no System.Range/System.Index — see RealmIdentity.FamilyOf for the same
+	// precedent in this project.
+	static string StripGlobalAlias(string text) =>
+		text.StartsWith("global::", StringComparison.Ordinal) ?
+			text.Substring(8) :
+			text;
+
+	static string? LeftmostIdentifier(NameSyntax name) =>
+		name switch
+		{
+			QualifiedNameSyntax qualified => LeftmostIdentifier(qualified.Left),
+			AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.Text,
+			SimpleNameSyntax simple => simple.Identifier.Text,
+			_ => null
+		};
+
+	static string? RootNamespaceSegment(INamespaceSymbol? containingNamespace)
+	{
+		if (containingNamespace is null || containingNamespace.IsGlobalNamespace)
+			return null;
+		var root = containingNamespace;
+		while (!root.ContainingNamespace.IsGlobalNamespace)
+			root = root.ContainingNamespace;
+		return root.Name;
+	}
 
 	static void Report(SyntaxNodeAnalysisContext context, Location location, string offender) =>
 		context.ReportDiagnostic(Diagnostic.Create(Diagnostics.WireFormatOutsideBorder, location, offender));

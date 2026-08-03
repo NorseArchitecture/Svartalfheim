@@ -16,8 +16,11 @@ namespace Norse.Architecture.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RealmReferenceAnalyzer : DiagnosticAnalyzer
 {
-	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+	static readonly ImmutableArray<DiagnosticDescriptor> _supportedDiagnostics =
 		[Diagnostics.MidgardTakenAsDependency, Diagnostics.CrossRealmReach, Diagnostics.ComponentImpurity];
+
+	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+		_supportedDiagnostics;
 
 	public override void Initialize(AnalysisContext context)
 	{
