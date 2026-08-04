@@ -63,3 +63,38 @@ readonly struct WellKnownTypes
 			compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1"));
 	}
 }
+
+/// <summary>
+/// The NORSE061/NORSE062 symbol set, resolved independently of <see cref="WellKnownTypes"/> — a
+/// compilation missing <c>[ServiceContract]</c>/<c>Result&lt;T&gt;</c> still runs the retention
+/// analyzer, and vice versa. <c>IMaskedValue</c>/<c>RetentionPolicyAttribute</c> are same-package
+/// symbols (they ship inside this project's own host package, Norse.Primitives) and always resolve in
+/// practice; <c>INorseEntity&lt;TSelf&gt;</c> is the one symbol that can genuinely be absent — no
+/// Norse.Persistence.EntityFramework reference means no persisted roots can exist, so the whole
+/// analyzer correctly self-disables rather than reporting on nothing.
+/// </summary>
+readonly struct RetentionWellKnownTypes
+{
+	RetentionWellKnownTypes(INamedTypeSymbol maskedValue, INamedTypeSymbol retentionPolicyAttribute, INamedTypeSymbol norseEntity)
+	{
+		MaskedValue = maskedValue;
+		RetentionPolicyAttribute = retentionPolicyAttribute;
+		NorseEntity = norseEntity;
+	}
+
+	public INamedTypeSymbol MaskedValue { get; }
+	public INamedTypeSymbol RetentionPolicyAttribute { get; }
+	public INamedTypeSymbol NorseEntity { get; }
+
+	/// <summary>Null when <c>IMaskedValue</c>, <c>RetentionPolicyAttribute</c>, or <c>INorseEntity&lt;TSelf&gt;</c> is unresolvable in the consuming compilation.</summary>
+	public static RetentionWellKnownTypes? Resolve(Compilation compilation)
+	{
+		var maskedValue = compilation.GetTypeByMetadataName("Norse.Primitives.Pii.IMaskedValue");
+		var retentionPolicyAttribute = compilation.GetTypeByMetadataName("Norse.Primitives.Pii.RetentionPolicyAttribute");
+		var norseEntity = compilation.GetTypeByMetadataName("Norse.Persistence.EntityFramework.INorseEntity`1");
+		if (maskedValue is null || retentionPolicyAttribute is null || norseEntity is null)
+			return null;
+
+		return new RetentionWellKnownTypes(maskedValue, retentionPolicyAttribute, norseEntity);
+	}
+}

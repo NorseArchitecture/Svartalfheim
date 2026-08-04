@@ -42,14 +42,18 @@ static class AnalyzerTestHarness
 			ExtraReferences,
 			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-	/// <summary>Compiles the fixture (asserting it compiles clean — a fixture typo must fail loudly here, never masquerade as "zero diagnostics") and runs the real analyzer against it.</summary>
-	public static async Task<ImmutableArray<Diagnostic>> GetDiagnosticsAsync(params string[] sources)
+	/// <summary>Compiles the fixture (asserting it compiles clean — a fixture typo must fail loudly here, never masquerade as "zero diagnostics") and runs NORSE060's analyzer against it.</summary>
+	public static Task<ImmutableArray<Diagnostic>> GetDiagnosticsAsync(params string[] sources) =>
+		GetDiagnosticsAsync(new ResultInServiceResponseAnalyzer(), sources);
+
+	/// <summary>Compiles the fixture (asserting it compiles clean — a fixture typo must fail loudly here, never masquerade as "zero diagnostics") and runs <paramref name="analyzer"/> against it.</summary>
+	public static async Task<ImmutableArray<Diagnostic>> GetDiagnosticsAsync(DiagnosticAnalyzer analyzer, params string[] sources)
 	{
 		var compilation = CreateCompilation(sources);
 		var compileErrors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToImmutableArray();
 		compileErrors.ShouldBeEmpty($"Fixture failed to compile:\n{string.Join("\n", compileErrors)}");
 
-		var withAnalyzers = compilation.WithAnalyzers([new ResultInServiceResponseAnalyzer()]);
+		var withAnalyzers = compilation.WithAnalyzers([analyzer]);
 		return await withAnalyzers.GetAnalyzerDiagnosticsAsync(TestContext.Current.CancellationToken);
 	}
 }
