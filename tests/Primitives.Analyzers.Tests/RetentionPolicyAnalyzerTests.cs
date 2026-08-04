@@ -158,6 +158,30 @@ public sealed class RetentionPolicyAnalyzerTests
 	}
 
 	[Fact]
+	async Task Fires_on_pii_property_inherited_from_a_non_root_base_class()
+	{
+		// A base class that does NOT itself implement INorseEntity<TSelf> — an unguarded PII
+		// property declared there must still be visible to the gate through the derived root.
+		var source =
+			"""
+			using Fixtures;
+			using Norse.Persistence.EntityFramework;
+			namespace App
+			{
+				public class PersonBase
+				{
+					public TestEmail Email { get; init; }
+				}
+				public sealed class Person : PersonBase, INorseEntity<Person>
+				{
+				}
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(new RetentionPolicyAnalyzer(), EntityStub, PiiFixture, source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE061");
+	}
+
+	[Fact]
 	async Task Does_not_fire_when_pii_lives_on_a_type_that_is_not_a_persisted_root()
 	{
 		// Retention is a storage concern — a wire DTO holding PII transiently needs no basis.

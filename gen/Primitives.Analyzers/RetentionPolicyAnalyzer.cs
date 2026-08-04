@@ -35,41 +35,58 @@ public sealed class RetentionPolicyAnalyzer : DiagnosticAnalyzer
 	static void AnalyzeType(SymbolAnalysisContext context, RetentionWellKnownTypes wellKnown)
 	{
 		var type = (INamedTypeSymbol)context.Symbol;
-		if (!type.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, wellKnown.NorseEntity)))
+		if (!IsNorseEntityRoot(type, wellKnown.NorseEntity))
 			return;
 
-		foreach (var property in type.GetMembers().OfType<IPropertySymbol>())
+		// Walk the base chain so an inherited PII property (a shared base class like
+		// NorseEntityBase<TSelf>, or a brownfield Identity base) doesn't bypass the gate — but stop
+		// before walking through another root's own base chain: that root is analyzed separately
+		// when SymbolAction visits it, so this root analyzes only up to, not through, the next one.
+		for (var t = type; t is not null; t = t.BaseType)
 		{
-			if (property is not { IsStatic: false, DeclaredAccessibility: Accessibility.Public })
-				continue;
+			if (!SymbolEqualityComparer.Default.Equals(t, type) && IsNorseEntityRoot(t, wellKnown.NorseEntity))
+				break;
 
-			// Explicit three-way, in law order. (1) Nullable<T> unwraps to a DIRECT scalar — the
-			// only wrapper that stays scalar; arrays route through IArrayTypeSymbol and collections
-			// through IEnumerable<T>, so neither can sneak into this branch.
-			var scalarType = property.Type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable ?
-				nullable.TypeArguments[0] :
-				property.Type;
-			if (PiiCompositionWalker.Implements(scalarType, wellKnown.MaskedValue))
+			foreach (var property in t.GetMembers().OfType<IPropertySymbol>())
 			{
-				if (!HasRetentionPolicy(property, wellKnown.RetentionPolicyAttribute))
-					Report(context, Diagnostics.PiiWithoutRetentionPolicy, property, property.Name, type.Name);
-				continue;
+				if (property is not { IsStatic: false, DeclaredAccessibility: Accessibility.Public })
+					continue;
+				AnalyzeProperty(context, wellKnown, type, property);
 			}
-
-			// (2) Array/collection whose element (transitively unwrapped) is PII — banned, no cure.
-			var element = PiiCompositionWalker.Unwrap(scalarType);
-			if (!SymbolEqualityComparer.Default.Equals(element, scalarType) &&
-				PiiCompositionWalker.Implements(element, wellKnown.MaskedValue))
-			{
-				Report(context, Diagnostics.PiiNotDirectScalar, property, element.Name, property.Name, type.Name);
-				continue;
-			}
-
-			// (3) PII hiding anywhere inside the composed type's closure — banned, no cure.
-			if (PiiCompositionWalker.FindReachablePii(element, wellKnown.MaskedValue) is { } nested)
-				Report(context, Diagnostics.PiiNotDirectScalar, property, nested.Name, property.Name, type.Name);
 		}
 	}
+
+	static void AnalyzeProperty(SymbolAnalysisContext context, RetentionWellKnownTypes wellKnown, INamedTypeSymbol type, IPropertySymbol property)
+	{
+		// Explicit three-way, in law order. (1) Nullable<T> unwraps to a DIRECT scalar — the
+		// only wrapper that stays scalar; arrays route through IArrayTypeSymbol and collections
+		// through IEnumerable<T>, so neither can sneak into this branch.
+		var scalarType = property.Type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable ?
+			nullable.TypeArguments[0] :
+			property.Type;
+		if (PiiCompositionWalker.Implements(scalarType, wellKnown.MaskedValue))
+		{
+			if (!HasRetentionPolicy(property, wellKnown.RetentionPolicyAttribute))
+				Report(context, Diagnostics.PiiWithoutRetentionPolicy, property, property.Name, type.Name);
+			return;
+		}
+
+		// (2) Array/collection whose element (transitively unwrapped) is PII — banned, no cure.
+		var element = PiiCompositionWalker.Unwrap(scalarType);
+		if (!SymbolEqualityComparer.Default.Equals(element, scalarType) &&
+			PiiCompositionWalker.Implements(element, wellKnown.MaskedValue))
+		{
+			Report(context, Diagnostics.PiiNotDirectScalar, property, element.Name, property.Name, type.Name);
+			return;
+		}
+
+		// (3) PII hiding anywhere inside the composed type's closure — banned, no cure.
+		if (PiiCompositionWalker.FindReachablePii(element, wellKnown.MaskedValue) is { } nested)
+			Report(context, Diagnostics.PiiNotDirectScalar, property, nested.Name, property.Name, type.Name);
+	}
+
+	static bool IsNorseEntityRoot(INamedTypeSymbol type, INamedTypeSymbol norseEntity) =>
+		type.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, norseEntity));
 
 	static bool HasRetentionPolicy(IPropertySymbol property, INamedTypeSymbol retentionPolicy) =>
 		property.GetAttributes().Any(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, retentionPolicy));
