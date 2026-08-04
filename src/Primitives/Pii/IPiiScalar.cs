@@ -12,6 +12,14 @@ public interface IPiiScalar<TSelf> : IMaskedValue where TSelf : struct, IPiiScal
 	/// <summary>The canonical unmasked wire string. Deliberate egress only.</summary>
 	string WireValue { get; }
 
+	/// <summary>
+	/// The exact string the blind-index HMAC (or any future normalization-sensitive consumer) is
+	/// computed over. One definition on the seam so normalization drift between a lookup writer and
+	/// a lookup reader is unrepresentable — both round-trip through this member, never a private
+	/// per-call formatting choice.
+	/// </summary>
+	string Normalized { get; }
+
 	/// <summary>Parses the canonical wire form. Untrusted input — no throwing path.</summary>
 	static abstract Result<TSelf> Parse(ReadOnlySpan<char> value);
 }

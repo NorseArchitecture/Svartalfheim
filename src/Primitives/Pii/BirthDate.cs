@@ -26,6 +26,10 @@ public readonly record struct BirthDate : IPiiScalar<BirthDate>
 	public string WireValue =>
 		Value.ToString(WireFormat, CultureInfo.InvariantCulture);
 
+	/// <summary>The blind-index input — identical to <see cref="WireValue"/> since ISO 8601 is already the canonical form.</summary>
+	public string Normalized =>
+		WireValue;
+
 	/// <inheritdoc />
 	public string Masked
 	{
