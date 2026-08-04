@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace Norse.Primitives.Pii;
 
 /// <summary>
@@ -13,7 +11,6 @@ namespace Norse.Primitives.Pii;
 /// footgun class) — every member throws <see cref="InvalidOperationException"/> on it. Equality is
 /// wire-value equality; identity-level sameness is a <see cref="Normalized"/> comparison.
 /// </remarks>
-[JsonConverter(typeof(MaskedValueJsonConverter<EmailAddress>))]
 public readonly record struct EmailAddress : IPiiScalar<EmailAddress>
 {
 	/// <summary>RFC 5321 total-length bound.</summary>
