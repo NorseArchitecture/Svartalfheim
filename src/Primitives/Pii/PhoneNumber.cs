@@ -40,9 +40,9 @@ public readonly record struct PhoneNumber : IPiiScalar<PhoneNumber>
 	{
 		var trimmed = value.Trim();
 		if (trimmed.IsEmpty)
-			return new(new Failure(ParseFailure.Empty, trimmed, nameof(PhoneNumber)));
+			return new(new Failure(ParseFailure.Empty, [], nameof(PhoneNumber)));
 		if (trimmed[0] != '+')
-			return new(new Failure(ParseFailure.Malformed, trimmed, nameof(PhoneNumber), format: "+15551234567"));
+			return new(new Failure(ParseFailure.Malformed, [], nameof(PhoneNumber), format: "+15551234567"));
 
 		Span<char> digits = stackalloc char[MaxDigits + 1];
 		var count = 0;
@@ -51,11 +51,11 @@ public readonly record struct PhoneNumber : IPiiScalar<PhoneNumber>
 			if (c is ' ' or '-' or '.' or '(' or ')')
 				continue;
 			if (!char.IsAsciiDigit(c) || count == MaxDigits)
-				return new(new Failure(ParseFailure.Malformed, trimmed, nameof(PhoneNumber), format: "+15551234567"));
+				return new(new Failure(ParseFailure.Malformed, [], nameof(PhoneNumber), format: "+15551234567"));
 			digits[count++] = c;
 		}
 		if (count < MinDigits || digits[0] == '0')
-			return new(new Failure(ParseFailure.Malformed, trimmed, nameof(PhoneNumber), format: "+15551234567"));
+			return new(new Failure(ParseFailure.Malformed, [], nameof(PhoneNumber), format: "+15551234567"));
 
 		return new(new Success<PhoneNumber>(new($"+{digits[..count]}")));
 	}

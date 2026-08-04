@@ -26,6 +26,10 @@ public readonly record struct BirthDate : IPiiScalar<BirthDate>
 	public string WireValue =>
 		Value.ToString(WireFormat, CultureInfo.InvariantCulture);
 
+	/// <summary>The blind-index input — identical to <see cref="WireValue"/> since ISO 8601 is already the canonical form.</summary>
+	public string Normalized =>
+		WireValue;
+
 	/// <inheritdoc />
 	public string Masked
 	{
@@ -55,10 +59,10 @@ public readonly record struct BirthDate : IPiiScalar<BirthDate>
 	{
 		var trimmed = value.Trim();
 		if (trimmed.IsEmpty)
-			return new(new Failure(ParseFailure.Empty, trimmed, nameof(BirthDate)));
+			return new(new Failure(ParseFailure.Empty, [], nameof(BirthDate)));
 		return DateOnly.TryParseExact(trimmed, WireFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ?
 			new(new Success<BirthDate>(new(date))) :
-			new(new Failure(ParseFailure.Malformed, trimmed, nameof(BirthDate), format: WireFormat));
+			new(new Failure(ParseFailure.Malformed, [], nameof(BirthDate), format: WireFormat));
 	}
 
 	/// <summary>String overload forwarding to the span parser.</summary>

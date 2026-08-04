@@ -62,6 +62,14 @@ public sealed class BirthDateTests
 	}
 
 	[Fact]
+	void Should_return_the_canonical_iso_string_when_normalized_is_requested()
+	{
+		BirthDate.Parse("1988-04-12").TryGetValue(out Success<BirthDate> success).ShouldBeTrue();
+		success.Value.Normalized.ShouldBe("1988-04-12");
+		success.Value.Normalized.ShouldBe(success.Value.WireValue);
+	}
+
+	[Fact]
 	void Should_throw_when_default_instance_is_accessed()
 	{
 		BirthDate malformed = default;

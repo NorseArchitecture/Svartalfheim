@@ -54,9 +54,9 @@ public readonly record struct EmailAddress : IPiiScalar<EmailAddress>
 	{
 		var trimmed = value.Trim();
 		if (trimmed.IsEmpty)
-			return new(new Failure(ParseFailure.Empty, trimmed, nameof(EmailAddress)));
+			return new(new Failure(ParseFailure.Empty, [], nameof(EmailAddress)));
 		if (trimmed.Length > MaxLength || !HasValidShape(trimmed))
-			return new(new Failure(ParseFailure.Malformed, trimmed, nameof(EmailAddress), format: "local@domain.tld"));
+			return new(new Failure(ParseFailure.Malformed, [], nameof(EmailAddress), format: "local@domain.tld"));
 		return new(new Success<EmailAddress>(new(trimmed.ToString())));
 	}
 

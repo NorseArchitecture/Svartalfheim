@@ -44,9 +44,9 @@ public readonly record struct PersonalName : IPiiScalar<PersonalName>
 	{
 		var trimmed = value.Trim();
 		if (trimmed.IsEmpty)
-			return new(new Failure(ParseFailure.Empty, trimmed, nameof(PersonalName)));
+			return new(new Failure(ParseFailure.Empty, [], nameof(PersonalName)));
 		if (trimmed.Length > MaxLength || !HasValidShape(trimmed))
-			return new(new Failure(ParseFailure.Malformed, trimmed, nameof(PersonalName)));
+			return new(new Failure(ParseFailure.Malformed, [], nameof(PersonalName)));
 		var canonical = trimmed.ToString();
 		if (!canonical.IsNormalized(NormalizationForm.FormC))
 			canonical = canonical.Normalize(NormalizationForm.FormC);
