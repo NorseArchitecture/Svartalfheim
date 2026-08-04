@@ -30,7 +30,7 @@ public sealed class RetentionPolicyAnalyzerTests
 		""";
 
 	[Fact]
-	async Task Reports_norse061_when_pii_property_has_no_retention_policy()
+	async Task Fires_on_pii_property_with_no_retention_policy()
 	{
 		var source =
 			"""
@@ -49,7 +49,7 @@ public sealed class RetentionPolicyAnalyzerTests
 	}
 
 	[Fact]
-	async Task Reports_nothing_when_pii_property_declares_retention_policy()
+	async Task Does_not_fire_when_pii_property_declares_retention_policy()
 	{
 		var source =
 			"""
@@ -70,7 +70,7 @@ public sealed class RetentionPolicyAnalyzerTests
 	}
 
 	[Fact]
-	async Task Reports_norse061_when_nullable_pii_property_has_no_retention_policy()
+	async Task Fires_on_nullable_pii_property_with_no_retention_policy()
 	{
 		var source =
 			"""
@@ -89,7 +89,7 @@ public sealed class RetentionPolicyAnalyzerTests
 	}
 
 	[Fact]
-	async Task Reports_norse062_when_pii_hides_inside_a_composed_type()
+	async Task Fires_on_pii_hiding_inside_a_composed_type()
 	{
 		var source =
 			"""
@@ -114,7 +114,7 @@ public sealed class RetentionPolicyAnalyzerTests
 	}
 
 	[Fact]
-	async Task Reports_norse062_when_pii_is_a_collection_element()
+	async Task Fires_on_pii_as_a_collection_element()
 	{
 		var source =
 			"""
@@ -134,7 +134,7 @@ public sealed class RetentionPolicyAnalyzerTests
 	}
 
 	[Fact]
-	async Task Reports_norse062_not_norse061_when_pii_is_an_array_element()
+	async Task Fires_norse062_not_norse061_on_pii_as_an_array_element()
 	{
 		// Arrays route through IArrayTypeSymbol, not INamedTypeSymbol — a named-type-only collection
 		// guard misroutes this to the attribute-curable NORSE061. Banned means banned: NORSE062.
@@ -158,7 +158,7 @@ public sealed class RetentionPolicyAnalyzerTests
 	}
 
 	[Fact]
-	async Task Reports_nothing_when_pii_lives_on_a_type_that_is_not_a_persisted_root()
+	async Task Does_not_fire_when_pii_lives_on_a_type_that_is_not_a_persisted_root()
 	{
 		// Retention is a storage concern — a wire DTO holding PII transiently needs no basis.
 		var source =
