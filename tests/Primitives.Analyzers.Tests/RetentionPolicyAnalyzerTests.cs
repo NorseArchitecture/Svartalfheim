@@ -221,4 +221,36 @@ public sealed class RetentionPolicyAnalyzerTests
 		diagnostic.Id.ShouldBe("NORSE061");
 		diagnostic.Severity.ShouldBe(DiagnosticSeverity.Error);
 	}
+
+	[Fact]
+	async Task Does_not_infinite_loop_on_a_cyclic_type_graph()
+	{
+		// Node is self-referential through IEnumerable<Node> — the exact shape that recursed
+		// PiiCompositionWalker.Unwrap without bound before it grew a visited-set guard. The
+		// assertion IS that this returns at all: a real infinite loop hangs the test run (or
+		// StackOverflowException's the process) rather than failing an assertion, which is exactly
+		// why this scenario earns its own test. Node carries no PII, so the clean-pass shape proves
+		// termination without also depending on FindReachablePii's own (already cycle-safe) BFS.
+		var source =
+			"""
+			using System.Collections;
+			using System.Collections.Generic;
+			using Norse.Persistence.EntityFramework;
+			namespace App
+			{
+				public sealed class Node : IEnumerable<Node>
+				{
+					public string Name { get; init; } = "";
+					public IEnumerator<Node> GetEnumerator() => throw new System.NotSupportedException();
+					IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+				}
+				public sealed class Person : INorseEntity<Person>
+				{
+					public Node Nodes { get; init; } = null!;
+				}
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(new RetentionPolicyAnalyzer(), EntityStub, source);
+		diagnostics.ShouldBeEmpty();
+	}
 }

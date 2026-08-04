@@ -36,16 +36,28 @@ static class PiiCompositionWalker
 
 	public static ITypeSymbol Unwrap(ITypeSymbol type)
 	{
+		var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+		return Unwrap(type, visited);
+	}
+
+	// Cycle-safe: a self-referential enumerable (class Node : IEnumerable<Node>) or a mutual pair
+	// (Foo : IEnumerable<Bar>, Bar : IEnumerable<Foo>) would otherwise recurse without bound and
+	// StackOverflowException the process. Once a type is revisited, it is returned unchanged — the
+	// caller sees "unwrapping made no progress" rather than looping forever.
+	static ITypeSymbol Unwrap(ITypeSymbol type, HashSet<ITypeSymbol> visited)
+	{
+		if (!visited.Add(type))
+			return type;
 		if (type is IArrayTypeSymbol array)
-			return Unwrap(array.ElementType);
+			return Unwrap(array.ElementType, visited);
 		if (type is INamedTypeSymbol named)
 		{
 			if (named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
-				return Unwrap(named.TypeArguments[0]);
+				return Unwrap(named.TypeArguments[0], visited);
 			var enumerable = named.AllInterfaces
 				.FirstOrDefault(i => i.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T);
 			if (enumerable is not null && named.SpecialType != SpecialType.System_String)
-				return Unwrap(enumerable.TypeArguments[0]);
+				return Unwrap(enumerable.TypeArguments[0], visited);
 		}
 		return type;
 	}
