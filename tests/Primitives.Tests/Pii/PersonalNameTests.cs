@@ -16,7 +16,7 @@ public sealed class PersonalNameTests
 	void Should_apply_form_c_normalization_when_input_is_decomposed()
 	{
 		// "é" as 'e' + combining acute accent (decomposed, Form D)
-		PersonalName.Parse("Réne").TryGetValue(out Success<PersonalName> success).ShouldBeTrue();
+		PersonalName.Parse("Réne").TryGetValue(out Success<PersonalName> success).ShouldBeTrue();
 		success.Value.WireValue.ShouldBe("Réne");
 	}
 
