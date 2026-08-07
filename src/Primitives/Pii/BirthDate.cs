@@ -32,8 +32,14 @@ public readonly record struct BirthDate : IPiiScalar<BirthDate>
 		WireValue;
 
 	/// <inheritdoc />
-	public string Masked =>
-		"****-**-**";
+	public string Masked
+	{
+		get
+		{
+			_ = Value;
+			return "****-**-**";
+		}
+	}
 
 	/// <summary>The exact age in whole years as of <paramref name="asOf"/>, clamped at zero.</summary>
 	public string ToMasked(DateOnly asOf)
