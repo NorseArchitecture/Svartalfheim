@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Norse.Primitives.Pii;
 
 /// <summary>
-/// A birth date as PII — not a <see cref="DateOnly"/> alias: the type is what the analyzer keys on.
+/// A birthdate as PII — not a <see cref="DateOnly"/> alias: the type is what the analyzer keys on.
 /// The pure mask is a zero-information redaction (<c>****-**-**</c>); the disclosure mask is the
 /// exact current age as of a caller-supplied date — computed at disclosure time, never stored, no
 /// clock in the primitive. No <c>Over18</c>-style predicates ship: threshold consumers compute from
@@ -16,9 +16,10 @@ public readonly record struct BirthDate : IPiiScalar<BirthDate>
 
 	readonly DateOnly? _value;
 
-	BirthDate(DateOnly value) => _value = value;
+	BirthDate(DateOnly value) =>
+		_value = value;
 
-	/// <summary>The birth date.</summary>
+	/// <summary>The birthdate.</summary>
 	public DateOnly Value =>
 		_value ?? throw new InvalidOperationException("default(BirthDate) is malformed — construct via Parse.");
 
@@ -31,14 +32,8 @@ public readonly record struct BirthDate : IPiiScalar<BirthDate>
 		WireValue;
 
 	/// <inheritdoc />
-	public string Masked
-	{
-		get
-		{
-			_ = Value;
-			return "****-**-**";
-		}
-	}
+	public string Masked =>
+		"****-**-**";
 
 	/// <summary>The exact age in whole years as of <paramref name="asOf"/>, clamped at zero.</summary>
 	public string ToMasked(DateOnly asOf)

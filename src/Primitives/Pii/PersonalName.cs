@@ -15,9 +15,10 @@ public readonly record struct PersonalName : IPiiScalar<PersonalName>
 	/// <summary>Component length bound.</summary>
 	public const int MaxLength = 128;
 
-	string Value { get; init; }
+	string Value { get; }
 
-	PersonalName(string value) => Value = value;
+	PersonalName(string value) =>
+		Value = value;
 
 	/// <summary>The canonical wire string (trimmed, Unicode NFC). Deliberate egress only.</summary>
 	public string WireValue =>

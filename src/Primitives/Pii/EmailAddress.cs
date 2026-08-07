@@ -16,9 +16,10 @@ public readonly record struct EmailAddress : IPiiScalar<EmailAddress>
 	/// <summary>RFC 5321 total-length bound.</summary>
 	public const int MaxLength = 254;
 
-	string Value { get; init; }
+	string Value { get; }
 
-	EmailAddress(string value) => Value = value;
+	EmailAddress(string value) =>
+		Value = value;
 
 	/// <summary>The canonical wire string (trimmed, as entered). Deliberate egress only.</summary>
 	public string WireValue =>

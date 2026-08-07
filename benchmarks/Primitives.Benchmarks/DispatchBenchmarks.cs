@@ -1,6 +1,3 @@
-using System.Globalization;
-using BenchmarkDotNet.Attributes;
-
 namespace Norse.Primitives.Benchmarks;
 
 [MemoryDiagnoser]
