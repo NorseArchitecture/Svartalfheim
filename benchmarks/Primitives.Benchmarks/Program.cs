@@ -1,7 +1,3 @@
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Jobs;
-using BenchmarkDotNet.Running;
-using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using Norse.Primitives.Benchmarks;
 
 // BDN 0.15.x does not recognize the net11.0 preview runtime moniker; the default

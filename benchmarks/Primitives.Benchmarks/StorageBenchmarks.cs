@@ -1,14 +1,10 @@
-using System.Runtime.CompilerServices;
-using BenchmarkDotNet.Attributes;
-
 namespace Norse.Primitives.Benchmarks;
 
 [MemoryDiagnoser]
 public class StorageBenchmarks
 {
-	static readonly Failure _malformedBoolean = new(ParseFailure.Malformed, "bogus", "Boolean");
-
 	const bool Flag = true;
+	static readonly Failure _malformedBoolean = new(ParseFailure.Malformed, "bogus", "Boolean");
 
 	[Benchmark(Baseline = true)]
 	public bool InlineSuccess()
@@ -28,18 +24,14 @@ public class StorageBenchmarks
 	public ParseFailure InlineFailure()
 	{
 		var result = CreateInlineFailure();
-		return result.TryGetValue(out Failure failure) ?
-			failure.Reason :
-			ParseFailure.Unspecified;
+		return result.TryGetValue(out Failure failure) ? failure.Reason : ParseFailure.Unspecified;
 	}
 
 	[Benchmark]
 	public ParseFailure BoxedFailure()
 	{
 		var result = CreateBoxedFailure();
-		return result.TryGetValue(out Failure failure) ?
-			failure.Reason :
-			ParseFailure.Unspecified;
+		return result.TryGetValue(out Failure failure) ? failure.Reason : ParseFailure.Unspecified;
 	}
 
 	// Returned values escape the constructing frame, so the boxed twin must heap-allocate —

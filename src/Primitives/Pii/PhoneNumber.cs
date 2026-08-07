@@ -11,9 +11,10 @@ public readonly record struct PhoneNumber : IPiiScalar<PhoneNumber>
 {
 	const int MinDigits = 8, MaxDigits = 15;
 
-	string Value { get; init; }
+	string Value { get; }
 
-	PhoneNumber(string value) => Value = value;
+	PhoneNumber(string value) =>
+		Value = value;
 
 	/// <summary>The canonical E.164 wire string. Deliberate egress only.</summary>
 	public string WireValue =>

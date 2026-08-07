@@ -74,5 +74,9 @@ public sealed class BirthDateTests
 	{
 		BirthDate malformed = default;
 		Should.Throw<InvalidOperationException>(() => malformed.WireValue);
+		Should.Throw<InvalidOperationException>(() => malformed.Normalized);
+		Should.Throw<InvalidOperationException>(() => malformed.Masked);
+		Should.Throw<InvalidOperationException>(malformed.ToString);
+		Should.Throw<InvalidOperationException>(() => malformed.ToMasked(new DateOnly(2026, 8, 3)));
 	}
 }
