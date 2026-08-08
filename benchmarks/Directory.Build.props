@@ -12,5 +12,12 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="BenchmarkDotNet" Version="*" />
+		<Using Include="BenchmarkDotNet.Attributes" />
+		<Using Include="BenchmarkDotNet.Configs" />
+		<Using Include="BenchmarkDotNet.Jobs" />
+		<Using Include="BenchmarkDotNet.Running" />
+		<Using Include="BenchmarkDotNet.Toolchains.InProcess.Emit" />
+		<Using Include="System.Globalization" />
+		<Using Include="System.Runtime.CompilerServices" />
 	</ItemGroup>
 </Project>
