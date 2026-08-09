@@ -1,4 +1,15 @@
 <Project>
+	<!--
+		Realm-owned (2026-08-08), not scattered — the same exception as this realm's own
+		Directory.Build.targets (see that file's header): Svartálfheim is a permanent
+		architectural leaf and never needs the UseProjectReferences/_ParentProps chain the
+		canonical file carries solely to propagate the workspace-vs-standalone
+		NorseRef-crossing decision down from Bifröst's root — dropped here, since nothing
+		in this realm's own build ever reads that property. Everything else below is
+		ordinary project identity and code-quality baseline, unrelated to NorseRef, so it
+		stays exactly as the canonical file has it. Doctrine: Glitnir/docs/the-runes.md
+		ch. 2/7.
+	-->
 	<PropertyGroup>
 		<!--
 			Analyzer tiers follow the platform baseline: Security/Performance/Reliability/Usage
@@ -23,16 +34,6 @@
 		<RootNamespace>Norse.$(MSBuildProjectName)</RootNamespace>
 		<TargetFramework>net11.0</TargetFramework>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-		<!-- Default to false unless the directory above overrides i.e. bifrost is loaded -->
-		<UseProjectReferences Condition="'$(UseProjectReferences)' == ''">false</UseProjectReferences>
 		<WarningLevel>9999</WarningLevel>
-		<_ParentProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_ParentProps>
 	</PropertyGroup>
-	<Import Project="$(_ParentProps)" Condition="Exists('$(_ParentProps)')" />
-	<!--
-		The Law of the Realms delivery does NOT live here: CPM's ManagePackageVersionsCentrally is
-		defined by Directory.Packages.props, which imports after this file — a props-level Choose
-		cannot see it and misfires under CPM (NU1008, proven live 2026-08-03). It lives in the
-		realm-root Directory.Build.targets, scattered beside this file.
-	-->
 </Project>
