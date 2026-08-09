@@ -14,5 +14,11 @@ public enum ParseFailure : byte
 	Empty = 1,
 
 	/// <summary>Input was present but not recognizable as the target type.</summary>
-	Malformed = 2
+	Malformed = 2,
+
+	/// <summary>
+	/// Input token was individually valid but repeated where each token may appear only once
+	/// — first consumer: flags-enum array parsing, a governed name appearing twice.
+	/// </summary>
+	Duplicate = 3
 }

@@ -25,7 +25,7 @@ public readonly record struct Failure
 	/// <exception cref="ArgumentException"><paramref name="expectedType"/> is null, empty, or whitespace.</exception>
 	public Failure(ParseFailure reason, string input, string expectedType, string? format = null, string? detail = null)
 	{
-		if (reason is not (ParseFailure.Empty or ParseFailure.Malformed))
+		if (reason is not (ParseFailure.Empty or ParseFailure.Malformed or ParseFailure.Duplicate))
 			throw new ArgumentOutOfRangeException(nameof(reason), reason, "Reason must be a real failure, not the Unspecified sentinel.");
 		ArgumentNullException.ThrowIfNull(input);
 		ArgumentException.ThrowIfNullOrWhiteSpace(expectedType);
