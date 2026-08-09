@@ -55,6 +55,16 @@ public sealed class FailureTests
 	void Should_throw_when_reason_is_not_a_real_failure(ParseFailure reason) =>
 		Should.Throw<ArgumentOutOfRangeException>(() => new Failure(reason, "x", "Boolean"));
 
+	[Theory]
+	[InlineData(ParseFailure.Empty)]
+	[InlineData(ParseFailure.Malformed)]
+	[InlineData(ParseFailure.Duplicate)]
+	void Should_construct_when_reason_is_a_real_failure(ParseFailure reason)
+	{
+		Failure failure = new(reason, "x", "Boolean");
+		failure.Reason.ShouldBe(reason);
+	}
+
 	[Fact]
 	void Should_throw_when_input_is_null() =>
 		Should.Throw<ArgumentNullException>(() => new Failure(ParseFailure.Malformed, null!, "Boolean"));
