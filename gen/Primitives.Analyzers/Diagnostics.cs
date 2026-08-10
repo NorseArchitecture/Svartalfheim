@@ -7,7 +7,7 @@ namespace Norse.Primitives.Analyzers;
 /// <summary>
 /// NORSE060 opened this decade for Svartálfheim; NORSE061/NORSE062 extend it (NORSE063 reserved for
 /// a future generic decrypted-PII query surface, per the 2026-08-03 PII spec §4.1). The platform's
-/// per-block convention: NORSE010 Asgard, NORSE011 Yggdrasil, NORSE020-021/NORSE022-029 Midgard,
+/// per-block convention: NORSE010 Asgard, NORSE011 Yggdrasil, NORSE020-021/NORSE022-029/NORSE035-037 Midgard,
 /// NORSE030-034 Urðarbrunnr, NORSE040-049 reserved on paper for the well-seam-midgard-excision plan,
 /// NORSE050-051 Mímisbrunnr, NORSE060-069 Svartálfheim; NORSE070-079 claimed for the architecture-law
 /// block (<c>Architecture.Analyzers</c>, 2026-08-03). A fresh platform-wide grep at authoring time
