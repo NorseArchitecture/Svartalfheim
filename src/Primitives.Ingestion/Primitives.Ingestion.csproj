@@ -1,26 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<Description>Norse forward-only tabular ingestion: a canonical ITabularReader contract over Sep (delimited) and Sylvan.Data.Excel (single-sheet Excel), for turning untrusted source files into cell spans. Scalar-value conversion of those spans into typed values is Norse.Primitives' job, composed by the caller — this project carries no dependency on it. Native AOT: Sep is fully AOT-clean. ExcelTabularReader/Sylvan.Data.Excel publish under Native AOT with one documented, suppressed trim-analysis finding (IL2093 - see the InternalsVisibleTo item group comment below), inherent to Sylvan.Data.Excel 0.5.6 itself and not this project's own code, pending an upstream fix.</Description>
+		<Description>Norse forward-only tabular ingestion: a canonical ITabularReader contract over Sep (delimited) and Sylvan.Data.Excel (single-sheet Excel), for turning untrusted source files into cell spans. Scalar-value conversion of those spans into typed values is Norse.Primitives' job, composed by the caller — this project carries no dependency on it. Native AOT: Sep and Sylvan.Data.Excel (0.5.8+) are both fully AOT-clean.</Description>
 	</PropertyGroup>
 	<ItemGroup>
 		<!-- SepTabularReader/ExcelTabularReader are internal sealed per the tabular-ingestion design (reachable only
 		     through ITabularReader) - $(AssemblyName).Tests already has the sanctioned door via src/Directory.Build.props.
 		     The AOT smoke test (Task 3) is a second, concrete, justified caller that constructs them directly to prove
-		     Native AOT compatibility; it gets its own narrow door rather than widening the shared one.
-
-		     That smoke test's Native AOT publish carries a documented, suppressed trim-analysis finding: IL2093 on
-		     Sylvan.Data.Excel.ExcelDataReader.GetFieldType - an annotation mismatch between Sylvan's override and the
-		     DbDataReader.GetFieldType base declaration it overrides, inherent to Sylvan.Data.Excel 0.5.6 itself and
-		     unavoidable by any consumer of ExcelDataReader (the type ExcelTabularReader wraps) under AOT trim
-		     analysis; ExcelTabularReader never calls GetFieldType directly. Same class of justified suppression as
-		     the CA1036/CA2225 SuppressMessage attributes on SequentialGuid/DeterministicGuid: the analyzer's default
-		     posture conflicts with a deliberate design fact, so it gets a narrow, cited suppression rather than
-		     silence. The suppression itself (`<NoWarn>IL2093</NoWarn>`) lives on the AOT-published exe project
-		     (tests/smoke/Primitives.Ingestion.Aot.Smoke.csproj) because $(NoWarn) is evaluated per-project and ILC
-		     only runs there - it does not flow across this ProjectReference boundary. Any future downstream Native
-		     AOT consumer of ExcelTabularReader needs the same `<NoWarn>IL2093</NoWarn>` until this ships as a NuGet
-		     package with buildTransitive props (deferred, per src/Primitives.Ingestion's packaging ledger) or Sylvan
-		     fixes the annotation mismatch upstream. -->
+		     Native AOT compatibility; it gets its own narrow door rather than widening the shared one. -->
 		<InternalsVisibleTo Include="Norse.Primitives.Ingestion.Aot.Smoke" />
 		<PackageReference Include="Sep" Version="*" />
 		<PackageReference Include="Sylvan.Data.Excel" Version="*" />
