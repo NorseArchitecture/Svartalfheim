@@ -1,0 +1,9 @@
+@using Microsoft.AspNetCore.Components.Forms
+@inherits Fixture.StubForm
+
+<EditForm EditContext="EditContextFor(_request)" OnSubmit="Handle" />
+
+@code {
+	readonly object _request = new();
+	void Handle(EditContext context) { }
+}
