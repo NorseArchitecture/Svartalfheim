@@ -11,16 +11,22 @@ namespace Norse.Architecture.Analyzers;
 /// only absolved call site is ForceLoadSessionTransition itself — matched by BOTH its full type name
 /// and its assembly, so no other assembly can mint the name and the gate's own pages are convicted
 /// like everyone else (an assembly-wide exemption would be the rejected interface opt-out at assembly
-/// blast radius). Enforcement is fail-loud: anything not provably soft convicts — a non-constant
-/// forceLoad argument, or an options value the analyzer cannot read inline. Runs over generated code
-/// deliberately: .razor components compile to auto-generated C#, and the default None would blind
-/// the rule to every Razor call site.
+/// blast radius). The assembly half of that match is brand-blind — a fork rebrands the AssemblyName
+/// token alone via its Directory.Build.props; the explicit `namespace Norse.*` declarations already
+/// written in source do not follow that rename — so the check matches any brand's
+/// "{Brand}.AuthN.Components" by suffix rather than the literal "Norse.AuthN.Components". Enforcement
+/// is fail-loud: anything not provably soft convicts — a non-constant forceLoad/forceReload argument,
+/// or an options value the analyzer cannot read inline. Covers both of Blazor's forced-reload APIs —
+/// NavigateTo(forceLoad:) and NavigationManager.Refresh(forceReload:), the same full-document-reload
+/// behavior under a different name. Runs over generated code deliberately: .razor components compile
+/// to auto-generated C#, and the default None would blind the rule to every Razor call site.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ForcedLoadAnalyzer : DiagnosticAnalyzer
 {
 	const string
-		GateAssembly = "Norse.AuthN.Components",
+		NavigationManagerType = "Microsoft.AspNetCore.Components.NavigationManager",
+		GateAssemblySuffix = ".AuthN.Components",
 		ImplementationType = "Norse.AuthN.Components.ForceLoadSessionTransition";
 
 	static readonly ImmutableArray<DiagnosticDescriptor> _supportedDiagnostics =
@@ -44,14 +50,15 @@ public sealed class ForcedLoadAnalyzer : DiagnosticAnalyzer
 	static void AnalyzeInvocation(OperationAnalysisContext context)
 	{
 		var invocation = (IInvocationOperation)context.Operation;
-		if (invocation.TargetMethod.Name != "NavigateTo"
-			|| invocation.TargetMethod.ContainingType.ToDisplayString() != "Microsoft.AspNetCore.Components.NavigationManager")
+		if (invocation.TargetMethod.Name is not ("NavigateTo" or "Refresh")
+			|| invocation.TargetMethod.ContainingType.ToDisplayString() != NavigationManagerType)
 			return;
 
 		// The one absolved call site: the seam's own implementation — type name AND assembly, both.
 		// A second type of this name cannot compile in the gate assembly; the name minted anywhere
-		// else fails the assembly key.
-		if (context.Compilation.AssemblyName == GateAssembly
+		// else fails the assembly key. Brand-blind: matches "{Brand}.AuthN.Components" for whatever
+		// brand a fork's Directory.Build.props injects, not just "Norse".
+		if (context.Compilation.AssemblyName?.EndsWith(GateAssemblySuffix, StringComparison.Ordinal) == true
 			&& context.ContainingSymbol.ContainingType?.ToDisplayString() == ImplementationType)
 			return;
 
@@ -67,7 +74,8 @@ public sealed class ForcedLoadAnalyzer : DiagnosticAnalyzer
 		{
 			// Anything not provably the constant false convicts — variables, negations, method
 			// results. The omitted-argument default arrives as a constant false and stays clean.
-			"forceLoad" =>
+			// forceLoad is NavigateTo's parameter name, forceReload is Refresh's — same policy either way.
+			"forceLoad" or "forceReload" =>
 				argument.Value.ConstantValue is not { HasValue: true, Value: false },
 			// The options overload demands an inline initializer the analyzer can read: a prebuilt
 			// options value convicts outright; an inline initializer convicts unless ForceLoad is

@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
@@ -14,6 +13,10 @@ namespace Norse.Architecture.Analyzers;
 /// which also carries an OnValidSubmit parameter is convicted at the OnValidSubmit call — EditForm's
 /// own synchronous validation pass would run ahead of SubmitAsync's async-aware gate. Model-bound
 /// scaffold forms (no EditContextFor) are deliberately outside the law until they adopt the seam.
+/// Frame tracking is scoped to RenderTreeBuilder calls specifically (both by containing type, not
+/// name alone) — an unrelated user method sharing a name like OpenComponent/CloseComponent must never
+/// walk the frame stack, and EditContextFor is matched by exact target-method name, not a textual
+/// suffix, so a differently named helper (CreateEditContextFor) can't be mistaken for the seam.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class SeamBoundFormAnalyzer : DiagnosticAnalyzer
@@ -33,17 +36,21 @@ public sealed class SeamBoundFormAnalyzer : DiagnosticAnalyzer
 			if (RealmIdentity.IsExempt(start.Compilation.AssemblyName ?? ""))
 				return;
 			var editForm = start.Compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Components.Forms.EditForm");
-			if (editForm is null)
+			var renderTreeBuilder = start.Compilation.GetTypeByMetadataName("Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder");
+			if (editForm is null || renderTreeBuilder is null)
 				return;
-			start.RegisterOperationBlockAction(block => AnalyzeBlock(block, editForm));
+			start.RegisterOperationBlockAction(block => AnalyzeBlock(block, editForm, renderTreeBuilder));
 		});
 	}
 
-	static void AnalyzeBlock(OperationBlockAnalysisContext context, INamedTypeSymbol editForm)
+	static void AnalyzeBlock(OperationBlockAnalysisContext context, INamedTypeSymbol editForm, INamedTypeSymbol renderTreeBuilder)
 	{
 		Stack<Frame> frames = new();
 		foreach (var block in context.OperationBlocks)
 			foreach (var operation in block.Descendants().OfType<IInvocationOperation>())
+			{
+				if (!SymbolEqualityComparer.Default.Equals(operation.TargetMethod.ContainingType, renderTreeBuilder))
+					continue;
 				switch (operation.TargetMethod.Name)
 				{
 					case "OpenComponent":
@@ -58,6 +65,7 @@ public sealed class SeamBoundFormAnalyzer : DiagnosticAnalyzer
 						Record(frames.Peek(), operation);
 						break;
 				}
+			}
 	}
 
 	static void Convict(OperationBlockAnalysisContext context, Frame frame)
@@ -76,9 +84,9 @@ public sealed class SeamBoundFormAnalyzer : DiagnosticAnalyzer
 		switch (parameterName)
 		{
 			case "EditContext":
-				frame.SeamBound = Argument(operation, 2)?.Value.Syntax.DescendantNodesAndSelf()
-					.OfType<InvocationExpressionSyntax>()
-					.Any(static i => i.Expression.ToString().EndsWith("EditContextFor", StringComparison.Ordinal)) == true;
+				frame.SeamBound = Argument(operation, 2)?.Value.DescendantsAndSelf()
+					.OfType<IInvocationOperation>()
+					.Any(static i => i.TargetMethod.Name == "EditContextFor") == true;
 				break;
 			case "OnValidSubmit":
 				frame.ValidSubmit = operation.Syntax;

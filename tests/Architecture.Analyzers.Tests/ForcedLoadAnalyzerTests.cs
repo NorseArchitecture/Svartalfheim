@@ -28,6 +28,7 @@ public sealed class ForcedLoadAnalyzerTests
 				{
 					public void NavigateTo(string uri, bool forceLoad = false, bool replace = false) { }
 					public void NavigateTo(string uri, NavigationOptions options) { }
+					public void Refresh(bool forceReload = false) { }
 				}
 				""", AnalyzerTestHarness.ParseOptions)],
 			ReferenceAssemblies.Bcl,
@@ -218,6 +219,79 @@ public sealed class ForcedLoadAnalyzerTests
 	{
 		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(
 			new ForcedLoadAnalyzer(), "Norse.Hosting.Web.Components.Tests", [NavigationStub()], ComponentSource);
+		diagnostics.ShouldBeEmpty();
+	}
+
+	// Codex review: the gate exemption used to hard-code the "Norse" brand; a fork that rebrands via
+	// Directory.Build.props (AssemblyName alone -- explicit namespace declarations in source do not
+	// follow) must still see its own gate implementation absolved.
+	[Fact]
+	async Task The_gate_assembly_check_is_brand_blind()
+	{
+		var source = """
+			using Microsoft.AspNetCore.Components;
+			namespace Norse.AuthN.Components;
+			sealed class ForceLoadSessionTransition(NavigationManager navigation)
+			{
+				public void Begin(string nextUrl) =>
+					navigation.NavigateTo(nextUrl, forceLoad: true);
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(
+			new ForcedLoadAnalyzer(), "Acme.AuthN.Components", [NavigationStub()], source);
+		diagnostics.ShouldBeEmpty();
+	}
+
+	[Fact]
+	async Task A_rebranded_gate_assembly_still_convicts_other_types()
+	{
+		var source = """
+			using Microsoft.AspNetCore.Components;
+			namespace Norse.AuthN.Components;
+			public class Logout
+			{
+				public void Go(NavigationManager navigation) =>
+					navigation.NavigateTo("/", forceLoad: true);
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(
+			new ForcedLoadAnalyzer(), "Acme.AuthN.Components", [NavigationStub()], source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE074");
+	}
+
+	// Codex review: NavigationManager.Refresh(forceReload: true) performs the same full-document
+	// reload as NavigateTo(forceLoad: true) and was going unwatched.
+	[Fact]
+	async Task A_forced_Refresh_call_is_convicted()
+	{
+		var source = """
+			using Microsoft.AspNetCore.Components;
+			namespace Norse.Hosting.Web.Components;
+			public class Page
+			{
+				public void Go(NavigationManager navigation) =>
+					navigation.Refresh(forceReload: true);
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(
+			new ForcedLoadAnalyzer(), "Norse.Hosting.Web.Components", [NavigationStub()], source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE074");
+	}
+
+	[Fact]
+	async Task A_soft_Refresh_call_is_clean()
+	{
+		var source = """
+			using Microsoft.AspNetCore.Components;
+			namespace Norse.Hosting.Web.Components;
+			public class Page
+			{
+				public void Go(NavigationManager navigation) =>
+					navigation.Refresh();
+			}
+			""";
+		var diagnostics = await AnalyzerTestHarness.GetDiagnosticsAsync(
+			new ForcedLoadAnalyzer(), "Norse.Hosting.Web.Components", [NavigationStub()], source);
 		diagnostics.ShouldBeEmpty();
 	}
 }
