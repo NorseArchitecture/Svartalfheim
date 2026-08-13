@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<ItemGroup>
+		<!-- BuildFixtures/ are inputs to a real dotnet build the test shells out to, never compiled
+		     into this test assembly itself. -->
+		<Compile Remove="BuildFixtures/**" />
+		<Content Include="BuildFixtures/**" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="11.*-*" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="*" PrivateAssets="all" />
 		<!-- Overrides a known-vulnerable transitive version pulled in by System.ServiceModel.Primitives — mirrors Heimdall's AuthN.Services.csproj. -->
 		<PackageReference Include="System.Security.Cryptography.Xml" Version="11.*-*" />
