@@ -127,11 +127,11 @@ public readonly record struct Result<T> : IUnion where T : notnull
 	public Result<TResult> Map<TResult>(Func<T, TResult> selector) where TResult : notnull
 	{
 		ArgumentNullException.ThrowIfNull(selector);
-		return this switch
-		{
-			Success<T>(var value) => new Success<TResult>(selector(value)),
-			Failure failure => failure,
-		};
+		if (TryGetValue(out Success<T> success))
+			return new Success<TResult>(selector(success.Value));
+		if (TryGetValue(out Failure failure))
+			return failure;
+		throw new SwitchExpressionException(this);
 	}
 
 	/// <summary>Chains a dependent conversion; a failure flows through untouched.</summary>
@@ -148,11 +148,11 @@ public readonly record struct Result<T> : IUnion where T : notnull
 	public Result<TResult> Bind<TResult>(Func<T, Result<TResult>> binder) where TResult : notnull
 	{
 		ArgumentNullException.ThrowIfNull(binder);
-		return this switch
-		{
-			Success<T>(var value) => binder(value),
-			Failure failure => failure,
-		};
+		if (TryGetValue(out Success<T> success))
+			return binder(success.Value);
+		if (TryGetValue(out Failure failure))
+			return failure;
+		throw new SwitchExpressionException(this);
 	}
 
 	/// <summary>Consumes the result by handling both cases.</summary>
@@ -166,11 +166,11 @@ public readonly record struct Result<T> : IUnion where T : notnull
 	{
 		ArgumentNullException.ThrowIfNull(success);
 		ArgumentNullException.ThrowIfNull(failure);
-		return this switch
-		{
-			Success<T>(var value) => success(value),
-			Failure failureCase => failure(failureCase),
-		};
+		if (TryGetValue(out Success<T> s))
+			return success(s.Value);
+		if (TryGetValue(out Failure f))
+			return failure(f);
+		throw new SwitchExpressionException(this);
 	}
 
 	/// <summary>Renders "Success(value)", "Failure(Reason, "input")", or "Default(invalid)".</summary>
