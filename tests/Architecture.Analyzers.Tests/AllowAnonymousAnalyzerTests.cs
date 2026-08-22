@@ -1,45 +1,10 @@
-using System.Runtime.InteropServices;
 using Microsoft.CodeAnalysis;
 
 namespace Norse.Architecture.Analyzers.Tests;
 
 public sealed class AllowAnonymousAnalyzerTests
 {
-	// Neither Microsoft.AspNetCore.Mvc.Core nor Microsoft.AspNetCore.Builder/.Routing ship as
-	// standalone NuGet packages post-3.0 (only in the shared framework), so this project carries no
-	// compile-time reference to them and typeof(...) is unavailable. Roslyn only needs the DLL bytes,
-	// not a loadable reference, so the fixtures below resolve straight from the shared-framework
-	// directory sitting beside the netcoreapp runtime this test host is already running on — the same
-	// "resolved from the test's own runtime" spirit as ReferenceAssemblies.Bcl, one level further out.
-	static readonly MetadataReference[] _aspNetReferences = ResolveAspNetCoreReferences();
-
-	static MetadataReference[] ResolveAspNetCoreReferences()
-	{
-		var netCoreAppDir = RuntimeEnvironment.GetRuntimeDirectory().TrimEnd(Path.DirectorySeparatorChar);
-		var sharedRoot = Directory.GetParent(Directory.GetParent(netCoreAppDir)!.FullName)!.FullName;
-		var aspNetCoreRoot = Path.Combine(sharedRoot, "Microsoft.AspNetCore.App");
-		var versionDir = Directory.GetDirectories(aspNetCoreRoot).OrderByDescending(d => d, StringComparer.Ordinal).First();
-
-		string[] aspNetCoreAssemblies =
-		[
-			"Microsoft.AspNetCore.Authorization.dll", // AllowAnonymousAttribute
-			"Microsoft.AspNetCore.Metadata.dll", // IAllowAnonymous
-			"Microsoft.AspNetCore.Mvc.Core.dll", // ControllerBase, Ok()
-			"Microsoft.AspNetCore.Mvc.Abstractions.dll", // IActionResult
-			"Microsoft.AspNetCore.dll", // WebApplication
-			"Microsoft.AspNetCore.Http.Abstractions.dll", // IEndpointConventionBuilder
-			"Microsoft.AspNetCore.Routing.dll", // IEndpointRouteBuilder, MapGet
-			"Microsoft.AspNetCore.Authorization.Policy.dll", // AllowAnonymous()/RequireAuthorization() extensions
-		];
-		var references = aspNetCoreAssemblies.Select(a => MetadataReference.CreateFromFile(Path.Combine(versionDir, a)));
-
-		// WebApplication implements IHost, which ships in the netcoreapp shared framework rather than
-		// the aspnetcore one -- needed for the fixture to bind WebApplication's base-type surface.
-		var hostingAbstractions = MetadataReference.CreateFromFile(
-			Path.Combine(netCoreAppDir, "Microsoft.Extensions.Hosting.Abstractions.dll"));
-
-		return [.. references, hostingAbstractions];
-	}
+	static readonly MetadataReference[] _aspNetReferences = ReferenceAssemblies.AspNetCore;
 
 	// NORSE013 ships isEnabledByDefault: false (Task 4 brief) -- the Roslyn analyzer driver skips
 	// Initialize entirely for an analyzer whose only diagnostic is disabled by default, unless the
@@ -156,6 +121,71 @@ public sealed class AllowAnonymousAnalyzerTests
 			public static class Wireup
 			{
 				public static string Open() => "x".AllowAnonymous();
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldBeEmpty();
+	}
+
+	[Fact]
+	async Task Strikes_the_attribute_on_a_minimal_api_lambda_handler()
+	{
+		const string Source = """
+			using Microsoft.AspNetCore.Authorization;
+			using Microsoft.AspNetCore.Builder;
+
+			public static class Wireup
+			{
+				public static void Map(WebApplication app) =>
+					app.MapGet("/", [AllowAnonymous] () => "ok");
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE013");
+	}
+
+	[Fact]
+	async Task Strikes_WithMetadata_adding_the_marker_attribute_directly()
+	{
+		const string Source = """
+			using Microsoft.AspNetCore.Authorization;
+			using Microsoft.AspNetCore.Builder;
+
+			public static class Wireup
+			{
+				public static void Map(WebApplication app) =>
+					app.MapGet("/health", () => "ok").WithMetadata(new AllowAnonymousAttribute());
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE013");
+	}
+
+	[Fact]
+	async Task Ignores_a_third_party_AllowAnonymous_extension_on_a_real_convention_builder()
+	{
+		const string Source = """
+			using Microsoft.AspNetCore.Builder;
+
+			// Placed in the framework's own namespace on purpose -- a legitimate third-party extension
+			// author needs no extra `using` for consumers, and this must not be convicted by namespace
+			// alone: it never touches IAllowAnonymous metadata.
+			namespace Microsoft.AspNetCore.Builder
+			{
+				public static class ThirdPartyEndpointConventionBuilderExtensions
+				{
+					public static TBuilder AllowAnonymous<TBuilder>(this TBuilder builder, string reason)
+						where TBuilder : IEndpointConventionBuilder => builder;
+				}
+			}
+
+			public static class Wireup
+			{
+				public static void Map(WebApplication app) =>
+					app.MapGet("/health", () => "ok").AllowAnonymous("not the framework's");
 			}
 			""";
 

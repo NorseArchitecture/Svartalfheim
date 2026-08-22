@@ -6,10 +6,12 @@
 		<Content Include="BuildFixtures/**" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="11.*-*" />
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+	<ItemGroup>
+		<!-- Microsoft.AspNetCore.Components.Web and System.Security.Cryptography.Xml are pruned:
+		     the FrameworkReference above makes both automatically available, NU1510 as an error. -->
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="*" PrivateAssets="all" />
-		<!-- Overrides a known-vulnerable transitive version pulled in by System.ServiceModel.Primitives — mirrors Heimdall's AuthN.Services.csproj. -->
-		<PackageReference Include="System.Security.Cryptography.Xml" Version="11.*-*" />
 		<PackageReference Include="System.ServiceModel.Primitives" Version="10.*" />
 		<ProjectReference Include="../../gen/Architecture.Analyzers/Architecture.Analyzers.csproj" />
 	</ItemGroup>
