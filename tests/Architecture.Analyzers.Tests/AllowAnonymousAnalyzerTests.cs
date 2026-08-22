@@ -1,0 +1,195 @@
+using Microsoft.CodeAnalysis;
+
+namespace Norse.Architecture.Analyzers.Tests;
+
+public sealed class AllowAnonymousAnalyzerTests
+{
+	static readonly MetadataReference[] _aspNetReferences = ReferenceAssemblies.AspNetCore;
+
+	// NORSE013 ships isEnabledByDefault: false (Task 4 brief) -- the Roslyn analyzer driver skips
+	// Initialize entirely for an analyzer whose only diagnostic is disabled by default, unless the
+	// compilation raises it explicitly. Opting in here is what lets these fixtures exercise the
+	// analyzer at all; it says nothing about the diagnostic's default severity in a real build (still
+	// off, confirmed by the ship-gate build in step 6).
+	static readonly IReadOnlyDictionary<string, ReportDiagnostic> _enableNorse013 =
+		new Dictionary<string, ReportDiagnostic> { ["NORSE013"] = ReportDiagnostic.Warn };
+
+	static Task<System.Collections.Immutable.ImmutableArray<Diagnostic>> Analyze(string source) =>
+		AnalyzerTestHarness.GetDiagnosticsAsync(new AllowAnonymousAnalyzer(), "Norse.Fixture.Assembly", _enableNorse013, _aspNetReferences, source);
+
+	[Fact]
+	async Task Strikes_the_attribute_on_an_action()
+	{
+		const string Source = """
+			using Microsoft.AspNetCore.Authorization;
+			using Microsoft.AspNetCore.Mvc;
+
+			public sealed class SampleController : ControllerBase
+			{
+				[AllowAnonymous]
+				public IActionResult Get() => Ok();
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE013");
+	}
+
+	[Fact]
+	async Task Strikes_the_fluent_call_on_an_endpoint_builder()
+	{
+		const string Source = """
+			using Microsoft.AspNetCore.Builder;
+
+			public static class Wireup
+			{
+				public static void Map(WebApplication app) =>
+					app.MapGet("/health", () => "ok").AllowAnonymous();
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE013");
+	}
+
+	[Fact]
+	async Task Allows_a_named_policy()
+	{
+		const string Source = """
+			using Microsoft.AspNetCore.Builder;
+			using Microsoft.AspNetCore.Authorization;
+
+			public static class Wireup
+			{
+				public static void Map(WebApplication app) =>
+					app.MapGet("/health", () => "ok").RequireAuthorization("Norse.Probe");
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldBeEmpty();
+	}
+
+	[Fact]
+	async Task Strikes_a_custom_attribute_that_implements_the_marker()
+	{
+		const string Source = """
+			using Microsoft.AspNetCore.Authorization;
+			using Microsoft.AspNetCore.Mvc;
+
+			public sealed class OpenAttribute : System.Attribute, IAllowAnonymous;
+
+			public sealed class SampleController : ControllerBase
+			{
+				[Open]
+				public IActionResult Get() => Ok();
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE013");
+	}
+
+	[Fact]
+	async Task Ignores_an_unrelated_user_method_that_happens_to_be_named_AllowAnonymous()
+	{
+		const string Source = """
+			public sealed class Doorman
+			{
+				public Doorman AllowAnonymous() => this;
+			}
+
+			public static class Wireup
+			{
+				public static void Open() => new Doorman().AllowAnonymous();
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldBeEmpty();
+	}
+
+	[Fact]
+	async Task Ignores_a_user_extension_named_AllowAnonymous_on_an_unrelated_receiver()
+	{
+		const string Source = """
+			public static class StringExtensions
+			{
+				public static string AllowAnonymous(this string value) => value;
+			}
+
+			public static class Wireup
+			{
+				public static string Open() => "x".AllowAnonymous();
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldBeEmpty();
+	}
+
+	[Fact]
+	async Task Strikes_the_attribute_on_a_minimal_api_lambda_handler()
+	{
+		const string Source = """
+			using Microsoft.AspNetCore.Authorization;
+			using Microsoft.AspNetCore.Builder;
+
+			public static class Wireup
+			{
+				public static void Map(WebApplication app) =>
+					app.MapGet("/", [AllowAnonymous] () => "ok");
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE013");
+	}
+
+	[Fact]
+	async Task Strikes_WithMetadata_adding_the_marker_attribute_directly()
+	{
+		const string Source = """
+			using Microsoft.AspNetCore.Authorization;
+			using Microsoft.AspNetCore.Builder;
+
+			public static class Wireup
+			{
+				public static void Map(WebApplication app) =>
+					app.MapGet("/health", () => "ok").WithMetadata(new AllowAnonymousAttribute());
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldContain(d => d.Id == "NORSE013");
+	}
+
+	[Fact]
+	async Task Ignores_a_third_party_AllowAnonymous_extension_on_a_real_convention_builder()
+	{
+		const string Source = """
+			using Microsoft.AspNetCore.Builder;
+
+			// Placed in the framework's own namespace on purpose -- a legitimate third-party extension
+			// author needs no extra `using` for consumers, and this must not be convicted by namespace
+			// alone: it never touches IAllowAnonymous metadata.
+			namespace Microsoft.AspNetCore.Builder
+			{
+				public static class ThirdPartyEndpointConventionBuilderExtensions
+				{
+					public static TBuilder AllowAnonymous<TBuilder>(this TBuilder builder, string reason)
+						where TBuilder : IEndpointConventionBuilder => builder;
+				}
+			}
+
+			public static class Wireup
+			{
+				public static void Map(WebApplication app) =>
+					app.MapGet("/health", () => "ok").AllowAnonymous("not the framework's");
+			}
+			""";
+
+		var diagnostics = await Analyze(Source);
+		diagnostics.ShouldBeEmpty();
+	}
+}

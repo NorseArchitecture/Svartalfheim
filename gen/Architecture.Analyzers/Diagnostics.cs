@@ -49,4 +49,18 @@ static class Diagnostics
 		"NORSE079", "Suppressing the law",
 		"[SuppressMessage] targeting '{0}' — suppressing the Law of the Realms is itself a violation; remove the attribute", Category,
 		DiagnosticSeverity.Error, isEnabledByDefault: true, customTags: WellKnownDiagnosticTags.NotConfigurable);
+
+	public static readonly DiagnosticDescriptor AllowAnonymousBanned = new(
+		"NORSE013",
+		"AllowAnonymous is banned",
+		"'{0}' adds AllowAnonymous metadata; every request carries a principal, so declare a named policy instead",
+		"Norse.Architecture",
+		DiagnosticSeverity.Warning,
+		isEnabledByDefault: false,
+		description:
+		"Every request carries a ClaimsPrincipal with a GUID — the anonymous visitor included — so no "
+		+ "endpoint needs an anonymity exemption. Routes that must be reachable without a credential "
+		+ "(OAuth endpoints, orchestrator probes, cookieless email-token links) declare a named policy, "
+		+ "which is greppable and reviewable where an attribute is neither. Governs authored source only; "
+		+ "framework-emitted metadata is out of scope.");
 }
