@@ -77,4 +77,19 @@ public sealed class DeterministicGuidTests
 		Guid unwrapped = value;
 		unwrapped.ShouldBe(value.Value);
 	}
+
+	[Fact]
+	void Native_and_managed_paths_produce_the_identical_value_for_the_same_input()
+	{
+		var namespaceId = DeterministicGuid.Namespaces.Dns;
+		const string Name = "example.com";
+
+		var native = new DeterministicGuid(namespaceId, Name);
+
+		DeterministicGuid managed = default;
+		NativeCapability.ForManagedOnly(() =>
+			managed = new DeterministicGuid(namespaceId, Name));
+
+		native.Value.ShouldBe(managed.Value);
+	}
 }

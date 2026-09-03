@@ -47,6 +47,12 @@ public readonly record struct DeterministicGuid : INorseGuid, IComparable<Determ
 	[SkipLocalsInit]
 	public DeterministicGuid(Guid namespaceId, ReadOnlySpan<char> name)
 	{
+		if (NativeCapability.Available)
+		{
+			Value = HyperUuid.UuidGenerator.NewV5(namespaceId, name.ToString());
+			return;
+		}
+
 		var maxByteCount = checked(16 + Encoding.UTF8.GetMaxByteCount(name.Length));
 		Span<byte> stackBuffer = stackalloc byte[StackThreshold];
 		var buffer = maxByteCount <= StackThreshold ? stackBuffer[..maxByteCount] : new byte[maxByteCount];
@@ -59,6 +65,12 @@ public readonly record struct DeterministicGuid : INorseGuid, IComparable<Determ
 	[SkipLocalsInit]
 	public DeterministicGuid(Guid namespaceId, ReadOnlySpan<byte> name)
 	{
+		if (NativeCapability.Available)
+		{
+			Value = HyperUuid.UuidGenerator.NewV5(namespaceId, Encoding.UTF8.GetString(name));
+			return;
+		}
+
 		var totalLength = checked(16 + name.Length);
 		Span<byte> stackBuffer = stackalloc byte[StackThreshold];
 		var buffer = totalLength <= StackThreshold ? stackBuffer[..totalLength] : new byte[totalLength];
