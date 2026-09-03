@@ -166,13 +166,27 @@ public sealed class TemporalFusionTests
 	// ── Sentinel guard ───────────────────────────────────────────────────────
 
 	[Fact]
-	void Should_propagate_date_sentinel_failure_when_date_is_datetime_minvalue()
+	void Should_reject_the_fused_utc_datetime_minvalue_via_its_own_guard()
 	{
-		// DateOnlyParser blocks DateOnly.MinValue (0001-01-01) before TemporalFusion reaches
-		// its own UTC sentinel guard. The sub-parser is the first line of defense.
+		// DateOnlyParser.ParseIso no longer rejects DateOnly.MinValue (0001-01-01) as a sentinel
+		// (Task 15 converged it to HyperCast's own corpus, which requires the ISO text to
+		// succeed) -- so the date sub-parse now succeeds, and TemporalFusion's own post-fusion
+		// guard (§4 of the temporal-parsers spec, unaudited against HyperCast -- TemporalFusion
+		// has no door of its own) is what catches the exact-midnight boundary instant.
 		var actual = TemporalFusion.FuseRequired("0001-01-01", "00:00:00", "UTC");
 		actual.TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
-		failure.ExpectedType.ShouldBe("DateOnly");
+		failure.ExpectedType.ShouldBe("DateTime");
+	}
+
+	[Fact]
+	void Should_fuse_a_non_midnight_time_on_the_boundary_date_now_that_the_date_sub_parse_succeeds()
+	{
+		// A non-midnight wall-clock time on the same boundary date is not itself
+		// DateTime.MinValue, so TemporalFusion's own guard does not reject it -- proving the
+		// Task 15 convergence changed the date sub-parse's own outcome, not just the boundary case.
+		var actual = TemporalFusion.FuseRequired("0001-01-01", "12:00:00", "UTC");
+		actual.TryGetValue(out Success<DateTime> success).ShouldBeTrue();
+		success.Value.ShouldBe(new(1, 1, 1, 12, 0, 0, DateTimeKind.Utc));
 	}
 }

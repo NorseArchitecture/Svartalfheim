@@ -21,6 +21,17 @@ public sealed class CorpusConformanceTests
 	public static IEnumerable<object[]> RealVectors() => CorpusVector.Load("real.json");
 	public static IEnumerable<object[]> TimestampVectors() => CorpusVector.Load("timestamp.json");
 	public static IEnumerable<object[]> DurationVectors() => CorpusVector.Load("duration.json");
+	public static IEnumerable<object[]> DateVectors() => CorpusVector.Load("date.json");
+	public static IEnumerable<object[]> TimeVectors() => CorpusVector.Load("time.json");
+
+	// date_order.json and datetime.json (order-declared "1/7/2026"-shaped separated dates and
+	// zone-less civil datetimes) exercise HyperCast.Cast.Date(span, DateOrder)/Cast.DateTime(span,
+	// DateOrder) -- doors with no counterpart anywhere in DateOnlyParser/DateTimeParser's four-door
+	// design (ISO-canonical / declared-exact-format-string / Unix-epoch). DateOnlyParser's own
+	// declared-exact door takes a single caller-supplied format string, not a coarse order enum
+	// with HyperCast's own flexible separator/digit-width detection -- a structurally different
+	// grammar, not a leniency gap to converge. Left out of this task's corpus coverage entirely
+	// (not merely excluded from one theory) -- see Task 15's report for the full audit.
 
 	// Excluded from BOTH native and managed: vectors declaring a "format" object that neither
 	// engine's real-number door, as built in this task, can express. Both are a genuine shared
@@ -175,6 +186,26 @@ public sealed class CorpusConformanceTests
 	void Duration_managed_path_matches_the_corpus(CorpusVector vector) =>
 		NativeCapability.ForManagedOnly(() => AssertDurationMatchesCorpus(vector));
 
+	[Theory]
+	[MemberData(nameof(DateVectors))]
+	void Date_native_path_matches_the_corpus(CorpusVector vector) =>
+		AssertDateMatchesCorpus(vector);
+
+	[Theory]
+	[MemberData(nameof(DateVectors))]
+	void Date_managed_path_matches_the_corpus(CorpusVector vector) =>
+		NativeCapability.ForManagedOnly(() => AssertDateMatchesCorpus(vector));
+
+	[Theory]
+	[MemberData(nameof(TimeVectors))]
+	void Time_native_path_matches_the_corpus(CorpusVector vector) =>
+		AssertTimeMatchesCorpus(vector);
+
+	[Theory]
+	[MemberData(nameof(TimeVectors))]
+	void Time_managed_path_matches_the_corpus(CorpusVector vector) =>
+		NativeCapability.ForManagedOnly(() => AssertTimeMatchesCorpus(vector));
+
 	static void AssertBooleanMatchesCorpus(CorpusVector vector)
 	{
 		var result = BooleanParser.ParseRequired(vector.Input);
@@ -281,6 +312,24 @@ public sealed class CorpusConformanceTests
 		var result = TimeSpanParser.ParseRequired(vector.Input);
 		if (vector.ExpectSuccess)
 			result.TryGetValue(out Success<TimeSpan> _).ShouldBeTrue();
+		else
+			result.TryGetValue(out Failure _).ShouldBeTrue();
+	}
+
+	static void AssertDateMatchesCorpus(CorpusVector vector)
+	{
+		var result = DateOnlyParser.ParseRequired(vector.Input);
+		if (vector.ExpectSuccess)
+			result.TryGetValue(out Success<DateOnly> _).ShouldBeTrue();
+		else
+			result.TryGetValue(out Failure _).ShouldBeTrue();
+	}
+
+	static void AssertTimeMatchesCorpus(CorpusVector vector)
+	{
+		var result = TimeOnlyParser.ParseRequired(vector.Input);
+		if (vector.ExpectSuccess)
+			result.TryGetValue(out Success<TimeOnly> _).ShouldBeTrue();
 		else
 			result.TryGetValue(out Failure _).ShouldBeTrue();
 	}

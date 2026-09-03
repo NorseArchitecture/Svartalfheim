@@ -28,10 +28,25 @@ public sealed class TimeOnlyParserTests
 		lastTick.Value.ShouldBe(TimeOnly.MaxValue);
 	}
 
+	[Fact]
+	void Should_truncate_a_nine_digit_fraction_to_tick_precision_rather_than_round()
+	{
+		// HyperCast's own grammar: one to nine fractional digits; the eighth and ninth truncate
+		// (never round) to the tick (100ns) the BCL can actually represent.
+		var actual = TimeOnlyParser.ParseRequired("23:59:59.999999999");
+		actual.TryGetValue(out Success<TimeOnly> success).ShouldBeTrue();
+		success.Value.ShouldBe(TimeOnly.MaxValue);
+	}
+
 	[Theory]
 	[InlineData("3:04:05 PM")]   // 12-hour is a declared-format concern, not ISO
 	[InlineData("25:00")]
 	[InlineData("noon")]
+	[InlineData("15:60")]              // minute out of range
+	[InlineData("15:04:60")]           // second out of range (no leap seconds)
+	[InlineData("15:04:05.")]          // trailing dot, zero fraction digits -- not a silent zero
+	[InlineData("15:04:05.0000000001")] // ten fractional digits -- no tick-level representation
+	[InlineData("15:04.5")]            // fraction without a seconds field
 	void Should_fail_with_malformed_reason_when_iso_time_is_unrecognized(string input)
 	{
 		var actual = TimeOnlyParser.ParseRequired(input);

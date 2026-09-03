@@ -35,12 +35,37 @@ public sealed class DateOnlyParserTests
 	}
 
 	[Fact]
-	void Should_reject_sentinel_dates_as_malformed()
+	void Should_parse_the_representable_boundary_dates_as_ordinary_successes()
 	{
-		DateOnlyParser.ParseRequired("0001-01-01").TryGetValue(out Failure min).ShouldBeTrue();
-		min.Reason.ShouldBe(ParseFailure.Malformed);
-		DateOnlyParser.ParseRequired("9999-12-31").TryGetValue(out Failure max).ShouldBeTrue();
-		max.Reason.ShouldBe(ParseFailure.Malformed);
+		// HyperCast's own corpus (date.json) requires DateOnly.MinValue/MaxValue's ISO text to
+		// succeed -- converged per the 2026-09-03 Task 15 amendment to the temporal-parsers spec
+		// §9, the same treatment Task 13 already gave DateTimeOffset's ISO door.
+		DateOnlyParser.ParseRequired("0001-01-01").TryGetValue(out Success<DateOnly> min).ShouldBeTrue();
+		min.Value.ShouldBe(DateOnly.MinValue);
+		DateOnlyParser.ParseRequired("9999-12-31").TryGetValue(out Success<DateOnly> max).ShouldBeTrue();
+		max.Value.ShouldBe(DateOnly.MaxValue);
+	}
+
+	[Fact]
+	void Should_fail_with_out_of_range_reason_for_a_well_formed_but_unrepresentable_year()
+	{
+		// "0000" is a well-formed four-digit year token that the proleptic Gregorian calendar
+		// cannot represent -- HyperCast's corpus (and this door's native translation) distinguish
+		// this from an ordinarily unrecognized string.
+		var actual = DateOnlyParser.ParseRequired("0000-01-01");
+		actual.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+		failure.ExpectedType.ShouldBe("DateOnly");
+	}
+
+	[Fact]
+	void Should_still_reject_a_wrong_separator_leading_zero_year_as_malformed()
+	{
+		// "0000/01/01" carries the same leading-zero year but the wrong separator -- must stay a
+		// grammar failure, not be swept into OutOfRange by a naive "starts with 0000" check.
+		var actual = DateOnlyParser.ParseRequired("0000/01/01");
+		actual.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
 	}
 
 	[Fact]
