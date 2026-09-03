@@ -20,6 +20,7 @@ public sealed class CorpusConformanceTests
 	public static IEnumerable<object[]> IntegerVectors() => CorpusVector.Load("integer.json");
 	public static IEnumerable<object[]> RealVectors() => CorpusVector.Load("real.json");
 	public static IEnumerable<object[]> TimestampVectors() => CorpusVector.Load("timestamp.json");
+	public static IEnumerable<object[]> DurationVectors() => CorpusVector.Load("duration.json");
 
 	// Excluded from BOTH native and managed: vectors declaring a "format" object that neither
 	// engine's real-number door, as built in this task, can express. Both are a genuine shared
@@ -164,6 +165,16 @@ public sealed class CorpusConformanceTests
 	void Timestamp_managed_path_matches_the_corpus(CorpusVector vector) =>
 		NativeCapability.ForManagedOnly(() => AssertTimestampMatchesCorpus(vector));
 
+	[Theory]
+	[MemberData(nameof(DurationVectors))]
+	void Duration_native_path_matches_the_corpus(CorpusVector vector) =>
+		AssertDurationMatchesCorpus(vector);
+
+	[Theory]
+	[MemberData(nameof(DurationVectors))]
+	void Duration_managed_path_matches_the_corpus(CorpusVector vector) =>
+		NativeCapability.ForManagedOnly(() => AssertDurationMatchesCorpus(vector));
+
 	static void AssertBooleanMatchesCorpus(CorpusVector vector)
 	{
 		var result = BooleanParser.ParseRequired(vector.Input);
@@ -261,6 +272,15 @@ public sealed class CorpusConformanceTests
 		var result = DateTimeOffsetParser.ParseRequired(vector.Input);
 		if (vector.ExpectSuccess)
 			result.TryGetValue(out Success<DateTimeOffset> _).ShouldBeTrue();
+		else
+			result.TryGetValue(out Failure _).ShouldBeTrue();
+	}
+
+	static void AssertDurationMatchesCorpus(CorpusVector vector)
+	{
+		var result = TimeSpanParser.ParseRequired(vector.Input);
+		if (vector.ExpectSuccess)
+			result.TryGetValue(out Success<TimeSpan> _).ShouldBeTrue();
 		else
 			result.TryGetValue(out Failure _).ShouldBeTrue();
 	}

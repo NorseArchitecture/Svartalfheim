@@ -99,20 +99,101 @@ public sealed class TimeSpanParserTests
 	void Should_return_absent_when_optional_input_is_absent(string? input) =>
 		TimeSpanParser.ParseOptional(input).HasValue.ShouldBeFalse();
 
+	// HyperCast's own Duration door reports these as OutOfRange, not Malformed -- both sentinels
+	// sit far past the ±10,000-year protobuf Duration ceiling every grammar shares, verified
+	// against the vendored corpus (duration.json's "10675199.02:48:05.4775807" vector, the exact
+	// TimeSpan.MaxValue round-trip) and against the native binary directly.
 	[Theory]
 	[InlineData("10675199.02:48:05.4775807")]   // TimeSpan.MaxValue round-trip
 	[InlineData("-10675199.02:48:05.4775808")]  // TimeSpan.MinValue round-trip
-	void Should_reject_sentinel_spans_as_malformed(string input)
+	void Should_reject_sentinel_spans_as_out_of_range(string input)
+	{
+		TimeSpanParser.ParseRequired(input).TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+	}
+
+	// Converged to HyperCast's own verdict (duration.json's matching vectors all expect
+	// out_of_range): an 18-digit-or-fewer component that overflows the ±10,000-year cap is
+	// OutOfRange, not Malformed -- Malformed is reserved for a component past the MaxDigits
+	// sanity bound itself (Should_fail_with_malformed_reason_when_duration_is_unrecognized below
+	// covers that separately).
+	[Theory]
+	[InlineData("PT999999999999999999S")]   // 18-digit seconds, past the ±10,000-year cap
+	[InlineData("PT9999999999999999H")]     // 16-digit hours, past the cap
+	[InlineData("P9999999999999999W")]      // 16-digit weeks, past the cap
+	void Should_fail_with_out_of_range_reason_when_iso_duration_overflows(string input)
+	{
+		TimeSpanParser.ParseRequired(input).TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+	}
+
+	// Converged to HyperCast: a colon-form hour is always bounded 0-23 and exactly one or two
+	// digits, whether or not a day prefix is present -- the BCL's own "bare hours total"
+	// leniency (a wider first component reads as an unbounded hour count) never applied here.
+	[Theory]
+	[InlineData("25:00:00")]   // hour out of 0-23 range, no day prefix
+	[InlineData("100:00:00")]  // hour past the two-digit width, no day prefix
+	[InlineData("90")]         // bare digit run: no colon, day prefix, or 's' suffix
+	[InlineData("01:60:00")]   // minute out of 0-59 range
+	[InlineData("01:30:60")]   // second out of 0-59 range
+	[InlineData("+1:30")]      // '+' is never a valid sign, only '-'
+	void Should_fail_with_malformed_reason_when_colon_form_grammar_is_violated(string input)
 	{
 		TimeSpanParser.ParseRequired(input).TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
 	}
 
+	// The short colon form (hh:mm, no seconds) and single-digit hh/mm/ss widths -- confirmed
+	// against HyperCast's own corpus and the native binary directly.
 	[Theory]
-	[InlineData("PT999999999999999999S")]   // would overflow the decimal->long cast
-	[InlineData("PT9999999999999999H")]     // would silently wrap long ticks
-	[InlineData("P9999999999999999W")]
-	void Should_fail_with_malformed_reason_when_iso_duration_overflows(string input)
+	[InlineData("01:30", 1, 30, 0)]
+	[InlineData("1:30", 1, 30, 0)]
+	[InlineData("1:5:00", 1, 5, 0)]
+	[InlineData("01:02:3", 1, 2, 3)]
+	void Should_parse_short_and_single_digit_colon_forms(string input, int hours, int minutes, int seconds)
+	{
+		TimeSpanParser.ParseRequired(input).TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
+		success.Value.ShouldBe(new TimeSpan(hours, minutes, seconds));
+	}
+
+	// Protobuf JSON seconds ("3.5s"), case-insensitive on the suffix, with either '.' or ','
+	// as the fractional decimal mark -- HyperCast's third duration shape, absent from the
+	// pre-Task-14 grammar entirely.
+	[Theory]
+	[InlineData("5400s", 5400)]
+	[InlineData("5400S", 5400)]
+	[InlineData("0s", 0)]
+	void Should_parse_the_protobuf_seconds_form(string input, int expectedSeconds)
+	{
+		TimeSpanParser.ParseRequired(input).TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
+		success.Value.ShouldBe(TimeSpan.FromSeconds(expectedSeconds));
+	}
+
+	[Fact]
+	void Should_parse_negative_protobuf_seconds_with_a_fraction()
+	{
+		TimeSpanParser.ParseRequired("-1.5s").TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
+		success.Value.ShouldBe(TimeSpan.FromSeconds(-1.5));
+	}
+
+	// A comma decimal mark is accepted wherever a period is, on every one of the three grammars.
+	[Theory]
+	[InlineData("PT1,5S")]
+	[InlineData("0:00:01,5")]
+	[InlineData("-1,5s")]
+	void Should_accept_a_comma_decimal_mark(string input)
+	{
+		TimeSpanParser.ParseRequired(input).TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
+		success.Value.Duration().ShouldBe(TimeSpan.FromSeconds(1.5));
+	}
+
+	// A tenth-or-later fractional digit has no tick representation and is unrecognized --
+	// mirrors DateTimeOffsetParser's identical rule for its own fractional-second tail.
+	[Theory]
+	[InlineData("5.1234567890s")]
+	[InlineData("PT1.1234567890S")]
+	[InlineData("0:00:00.1234567890")]
+	void Should_fail_with_malformed_reason_when_fraction_exceeds_nine_digits(string input)
 	{
 		TimeSpanParser.ParseRequired(input).TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
