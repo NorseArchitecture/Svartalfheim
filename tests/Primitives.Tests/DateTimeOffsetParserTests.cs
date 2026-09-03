@@ -42,13 +42,45 @@ public sealed class DateTimeOffsetParserTests
 		failure.Format.ShouldBe("ISO 8601");
 	}
 
-	[Fact]
-	void Should_reject_sentinel_instants_as_malformed()
+	[Theory]
+	[InlineData("0001-01-01T00:00:00Z")]
+	[InlineData("9999-12-31T23:59:59.9999999Z")]
+	[InlineData("9999-12-31T23:59:59.999999999Z")] // 9-digit fraction truncates to ticks, not rounds -- must not overflow past MaxValue
+	void Should_parse_the_representable_boundary_instants_as_ordinary_successes(string input) =>
+		DateTimeOffsetParser.ParseRequired(input).TryGetValue(out Success<DateTimeOffset> _).ShouldBeTrue();
+
+	[Theory]
+	[InlineData("0000-01-01T00:00:00Z")]           // year token is well-formed but unrepresentable
+	[InlineData("0001-01-01T00:00:00+01:00")]      // in-range local components, but the offset shifts the UTC-equivalent below MinValue
+	[InlineData("9999-12-31T23:59:59-01:00")]      // in-range local components, but the offset shifts the UTC-equivalent past MaxValue
+	void Should_fail_with_out_of_range_reason_when_the_utc_equivalent_is_unrepresentable(string input)
 	{
-		DateTimeOffsetParser.ParseRequired("0001-01-01T00:00:00Z").TryGetValue(out Failure min).ShouldBeTrue();
-		min.Reason.ShouldBe(ParseFailure.Malformed);
-		DateTimeOffsetParser.ParseRequired("9999-12-31T23:59:59.9999999Z").TryGetValue(out Failure max).ShouldBeTrue();
-		max.Reason.ShouldBe(ParseFailure.Malformed);
+		var actual = DateTimeOffsetParser.ParseRequired(input);
+		actual.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+	}
+
+	[Theory]
+	[InlineData("2026-01-02t15:04:05z")]  // lowercase separator and zone designator are both accepted
+	[InlineData("2026-01-02T15:04:05-00:00")]
+	void Should_accept_lenient_grammar_variants_the_corpus_declares_ok(string input) =>
+		DateTimeOffsetParser.ParseRequired(input).TryGetValue(out Success<DateTimeOffset> _).ShouldBeTrue();
+
+	[Theory]
+	[InlineData("2026-01-02 15:04:05Z")]           // space separator -- RFC 3339 requires 'T'/'t'
+	[InlineData("2026-01-02T15:04Z")]               // seconds field omitted
+	[InlineData("2026-01-02T15:04:05+0500")]        // numeric offset missing its colon
+	[InlineData("2026-01-02T15:04:05+24:00")]       // offset magnitude exceeds DateTimeOffset's own +/-14:00 ceiling
+	[InlineData("2026-02-29T00:00:00Z")]            // 2026 is not a leap year
+	[InlineData("2026-13-01T00:00:00Z")]            // month 13
+	[InlineData("2026-01-02T24:00:00Z")]            // hour 24 -- DateTime itself leniently rolls this to next-day midnight; the grammar must not
+	[InlineData("2016-12-31T23:59:60Z")]            // leap second, not accepted
+	[InlineData("1970-01-01T00:00:00.0000000001Z")] // tenth fractional digit has no .NET representation
+	void Should_fail_with_malformed_reason_for_grammar_violations_beyond_the_original_test_cases(string input)
+	{
+		var actual = DateTimeOffsetParser.ParseRequired(input);
+		actual.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
 	}
 
 	[Fact]
