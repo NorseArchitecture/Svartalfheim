@@ -77,6 +77,7 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 			GuidByteOrder.Unspecified => throw new InvalidOperationException(
 				"default(SequentialGuid) is malformed by construction -- Order is Unspecified. Only wrap a value this platform already produced via the two-arg constructor, or generate a new one with SequentialGuid()."),
 			GuidByteOrder.SqlServer => this,
+			_ when NativeCapability.Available => new(HyperUuid.UuidGenerator.V7ToSqlOrder(Value), GuidByteOrder.SqlServer),
 			_ => new(SequentialGuidBytes.ToSqlOrder(Value), GuidByteOrder.SqlServer)
 		};
 
@@ -88,6 +89,7 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 			GuidByteOrder.Unspecified => throw new InvalidOperationException(
 				"default(SequentialGuid) is malformed by construction -- Order is Unspecified. Only wrap a value this platform already produced via the two-arg constructor, or generate a new one with SequentialGuid()."),
 			GuidByteOrder.Rfc9562 => this,
+			_ when NativeCapability.Available => new(HyperUuid.UuidGenerator.V7FromSqlOrder(Value), GuidByteOrder.Rfc9562),
 			_ => new(SequentialGuidBytes.ToRfcOrder(Value), GuidByteOrder.Rfc9562)
 		};
 

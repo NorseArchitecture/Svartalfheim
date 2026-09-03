@@ -157,4 +157,29 @@ public sealed class SequentialGuidTests
 		GuidVersionBits.HasVersionAndVariant(value.Value, 7).ShouldBeTrue();
 		value.Order.ShouldBe(GuidByteOrder.Rfc9562);
 	}
+
+	[Fact]
+	void Native_sql_order_transform_matches_the_managed_permutation_byte_for_byte()
+	{
+		var rfcOrdered = new SequentialGuid();
+
+		var managedSqlOrder = default(SequentialGuid);
+		NativeCapability.ForManagedOnly(() =>
+			managedSqlOrder = rfcOrdered.ToSqlOrder());
+
+		var nativeSqlOrder = new SequentialGuid(HyperUuid.UuidGenerator.V7ToSqlOrder(rfcOrdered.Value), GuidByteOrder.SqlServer);
+
+		nativeSqlOrder.Value.ShouldBe(managedSqlOrder.Value);
+	}
+
+	[Fact]
+	void Native_sql_order_round_trip_reproduces_the_original_value()
+	{
+		var rfcOrdered = new SequentialGuid();
+
+		var sqlOrdered = HyperUuid.UuidGenerator.V7ToSqlOrder(rfcOrdered.Value);
+		var roundTripped = HyperUuid.UuidGenerator.V7FromSqlOrder(sqlOrdered);
+
+		roundTripped.ShouldBe(rfcOrdered.Value);
+	}
 }
