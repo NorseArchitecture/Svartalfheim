@@ -161,15 +161,18 @@ public sealed class SequentialGuidTests
 	[Fact]
 	void Native_sql_order_transform_matches_the_managed_permutation_byte_for_byte()
 	{
-		var rfcOrdered = new SequentialGuid();
+		for (int i = 0; i < 100; i++)
+		{
+			var rfcOrdered = new SequentialGuid();
 
-		var managedSqlOrder = default(SequentialGuid);
-		NativeCapability.ForManagedOnly(() =>
-			managedSqlOrder = rfcOrdered.ToSqlOrder());
+			var managedSqlOrder = default(SequentialGuid);
+			NativeCapability.ForManagedOnly(() =>
+				managedSqlOrder = rfcOrdered.ToSqlOrder());
 
-		var nativeSqlOrder = new SequentialGuid(HyperUuid.UuidGenerator.V7ToSqlOrder(rfcOrdered.Value), GuidByteOrder.SqlServer);
+			var nativeSqlOrder = new SequentialGuid(HyperUuid.UuidGenerator.V7ToSqlOrder(rfcOrdered.Value), GuidByteOrder.SqlServer);
 
-		nativeSqlOrder.Value.ShouldBe(managedSqlOrder.Value);
+			nativeSqlOrder.Value.ShouldBe(managedSqlOrder.Value);
+		}
 	}
 
 	[Fact]
