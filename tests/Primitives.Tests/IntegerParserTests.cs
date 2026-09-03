@@ -154,4 +154,22 @@ public sealed class IntegerParserTests
 	void Should_fail_when_value_overflows_long() =>
 		IntegerParser.ParseRequired<long>("99999999999999999999999", _invariant)
 			.TryGetValue(out Failure _).ShouldBeTrue();
+
+	[Fact]
+	void Should_return_OutOfRange_when_text_is_numerically_well_formed_but_exceeds_the_target_type()
+	{
+		var result = IntegerParser.ParseRequired<byte>("256", CultureInfo.InvariantCulture);
+
+		result.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+	}
+
+	[Fact]
+	void Should_still_return_Malformed_for_genuinely_unrecognizable_text()
+	{
+		var result = IntegerParser.ParseRequired<byte>("not-a-number", CultureInfo.InvariantCulture);
+
+		result.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
 }

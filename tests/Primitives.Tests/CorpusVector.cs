@@ -19,7 +19,13 @@ namespace Norse.Primitives.Tests;
 /// <see langword="null"/>. Type varies by door (a JSON boolean for <c>boolean.json</c>, a
 /// hex-string GUID representation for <c>uuid.json</c>).
 /// </param>
-sealed record CorpusVector(string Input, string Expect, object? Value)
+/// <param name="Type">
+/// The target scalar width this vector is written against (<c>integer.json</c> only —
+/// <c>"i8"</c>/<c>"i16"</c>/<c>"i32"</c>/<c>"i64"</c>/<c>"u8"</c>/<c>"u16"</c>/<c>"u32"</c>/
+/// <c>"u64"</c>). <see langword="null"/> for corpora with a single fixed target type
+/// (<c>boolean.json</c>, <c>uuid.json</c>).
+/// </param>
+sealed record CorpusVector(string Input, string Expect, object? Value, string? Type = null)
 {
 	static readonly JsonSerializerOptions _options = new(JsonSerializerDefaults.Web);
 
