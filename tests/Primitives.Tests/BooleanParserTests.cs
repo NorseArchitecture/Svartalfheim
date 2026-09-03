@@ -55,7 +55,6 @@ public sealed class BooleanParserTests
 	[InlineData("  Y  ")]
 	[InlineData("tRuE")]
 	[InlineData("fAlSe", false)]
-	[InlineData("true\0")]
 	[InlineData(" Y ")]
 	void Should_parse_value_when_input_is_recognized(string input, bool expected = true)
 	{
@@ -110,6 +109,10 @@ public sealed class BooleanParserTests
 	[InlineData("\tyess\n")]
 	// ReSharper restore StringLiteralTypo
 	[InlineData("yes\0")]
+	// HyperCast's corpus is authoritative on a trailing NUL: it's Malformed, not a recognized
+	// "true" literal. The prior managed-only leniency here came from bool.TryParse silently
+	// trimming a trailing '\0' -- superseded now that the native path enforces the real grammar.
+	[InlineData("true\0")]
 	void Should_fail_with_malformed_reason_when_input_is_unrecognized(string input)
 	{
 		var actual = BooleanParser.ParseRequired(input);

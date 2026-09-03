@@ -56,12 +56,21 @@ public static class BooleanParser
 			Parse(trimmed);
 	}
 
-	static Result<bool> Parse(ReadOnlySpan<char> trimmed) =>
-		bool.TryParse(trimmed, out var parsed) ?
+	static Result<bool> Parse(ReadOnlySpan<char> trimmed)
+	{
+		if (NativeCapability.Available)
+			return HyperCast.Cast.Boolean(trimmed) switch
+			{
+				HyperCast.Success<bool> s => new Success<bool>(s.Value),
+				HyperCast.Fault => new Failure(ParseFailure.Malformed, trimmed, ExpectedType),
+			};
+
+		return bool.TryParse(trimmed, out var parsed) ?
 			new Success<bool>(parsed) :
 			_trueValues.Contains(trimmed) ?
 				new Success<bool>(true) :
 				_falseValues.Contains(trimmed) ?
 					new Success<bool>(false) :
 					new Failure(ParseFailure.Malformed, trimmed, ExpectedType);
+	}
 }

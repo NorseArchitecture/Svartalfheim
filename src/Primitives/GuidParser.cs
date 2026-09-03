@@ -41,10 +41,19 @@ public static class GuidParser
 			Parse(trimmed);
 	}
 
-	static Result<Guid> Parse(ReadOnlySpan<char> trimmed) =>
-		Guid.TryParse(StripPrefix(trimmed), out var value) ?
+	static Result<Guid> Parse(ReadOnlySpan<char> trimmed)
+	{
+		if (NativeCapability.Available)
+			return HyperCast.Cast.Uuid(StripPrefix(trimmed)) switch
+			{
+				HyperCast.Success<Guid> s => new Success<Guid>(s.Value),
+				HyperCast.Fault => new Failure(ParseFailure.Malformed, trimmed, ExpectedType),
+			};
+
+		return Guid.TryParse(StripPrefix(trimmed), out var value) ?
 			new Success<Guid>(value) :
 			new Failure(ParseFailure.Malformed, trimmed, ExpectedType);
+	}
 
 	static ReadOnlySpan<char> StripPrefix(ReadOnlySpan<char> trimmed)
 	{
