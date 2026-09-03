@@ -57,12 +57,14 @@ public sealed class RealParserTests
 	}
 
 	[Fact]
-	void Should_fail_when_double_overflows_to_infinity()
+	void Should_fail_with_out_of_range_reason_when_double_overflows_to_infinity()
 	{
-		// Overflow produces Infinity, which the finite guard rejects — fail loud, no asymmetry.
+		// A well-formed literal whose magnitude simply exceeds double's finite range is
+		// OutOfRange, not Malformed — the same well-formed-but-out-of-range distinction
+		// IntegerParser draws, and the same distinction HyperCast's own Cast.Double draws.
 		var actual = RealParser.ParseRequired<double>("1e400", _invariant);
 		actual.TryGetValue(out Failure failure).ShouldBeTrue();
-		failure.Reason.ShouldBe(ParseFailure.Malformed);
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
 	}
 
 	[Fact]

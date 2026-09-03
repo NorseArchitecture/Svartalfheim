@@ -18,6 +18,34 @@ public sealed class CorpusConformanceTests
 	public static IEnumerable<object[]> BooleanVectors() => CorpusVector.Load("boolean.json");
 	public static IEnumerable<object[]> GuidVectors() => CorpusVector.Load("uuid.json");
 	public static IEnumerable<object[]> IntegerVectors() => CorpusVector.Load("integer.json");
+	public static IEnumerable<object[]> RealVectors() => CorpusVector.Load("real.json");
+
+	// Excluded from BOTH native and managed: vectors declaring a "format" object that neither
+	// engine's real-number door, as built in this task, can express. Both are a genuine shared
+	// capability gap, not a leniency mismatch (same category Task 11 established for IntegerParser):
+	//   - "1.234,5" / "1 234,5" (flags 31 — every lenience but SeparatorDetect): a fully
+	//     custom, non-invariant decimal/group separator pair declared explicitly (not detected;
+	//     the second vector's group separator is U+00A0 NO-BREAK SPACE, not an ASCII space).
+	//     Neither RealParser.ParseRequired's IFormatProvider culture door nor its detectSeparators
+	//     opt-in models an arbitrary declared separator pair outside a real CultureInfo — a future
+	//     task that threads the corpus's raw decimal_sep/group_sep through a per-call NumFormat/
+	//     NumberFormatInfo should re-include these.
+	//   - "50%" (flags 0 — every lenience off, including Percent): RealParser has no per-call door
+	//     to disable percent-suffix lenience; it is always on, matching HyperCast's own Invariant
+	//     and Detect profiles ("every lenience on") but not a bare flags:0 declaration.
+	static readonly (string Input, string Type, int Flags)[] _realFormatOverrideVectors =
+	[
+		("1.234,5", "f64", 31),
+		("1 234,5", "f64", 31),
+		("50%", "f64", 0),
+	];
+
+	static bool IsRealFormatOverride(CorpusVector vector) =>
+		vector.Format is { IsSeparatorDetect: false } format &&
+		_realFormatOverrideVectors.Contains((vector.Input, vector.Type ?? "", format.Flags));
+
+	public static IEnumerable<object[]> RealVectorsInScope() =>
+		RealVectors().Where(v => !IsRealFormatOverride((CorpusVector)v[0]));
 
 	// Managed-only exclusions: known, understood managed/native leniency divergences where the
 	// BCL's own parser (bool.TryParse / Guid.TryParse) is more lenient than HyperCast's grammar.
@@ -115,6 +143,16 @@ public sealed class CorpusConformanceTests
 	void Integer_managed_path_matches_the_corpus(CorpusVector vector) =>
 		NativeCapability.ForManagedOnly(() => AssertIntegerMatchesCorpus(vector));
 
+	[Theory]
+	[MemberData(nameof(RealVectorsInScope))]
+	void Real_native_path_matches_the_corpus(CorpusVector vector) =>
+		AssertRealMatchesCorpus(vector);
+
+	[Theory]
+	[MemberData(nameof(RealVectorsInScope))]
+	void Real_managed_path_matches_the_corpus(CorpusVector vector) =>
+		NativeCapability.ForManagedOnly(() => AssertRealMatchesCorpus(vector));
+
 	static void AssertBooleanMatchesCorpus(CorpusVector vector)
 	{
 		var result = BooleanParser.ParseRequired(vector.Input);
@@ -172,6 +210,35 @@ public sealed class CorpusConformanceTests
 	static void AssertIntegerMatchesCorpus<T>(CorpusVector vector) where T : IBinaryInteger<T>
 	{
 		var result = IntegerParser.ParseRequired<T>(vector.Input, CultureInfo.InvariantCulture);
+		if (vector.ExpectSuccess)
+			result.TryGetValue(out Success<T> _).ShouldBeTrue();
+		else
+			result.TryGetValue(out Failure _).ShouldBeTrue();
+	}
+
+	// real.json tags every vector with its target width ("f32"/"f64") -- unlike the boolean/GUID
+	// corpora, this door dispatches per vector to the correctly-typed RealParser.ParseRequired<T>
+	// call. A "format" object with SeparatorDetect set opts the call into RealParser's
+	// detectSeparators door; every other in-scope vector parses under plain invariant culture.
+	static void AssertRealMatchesCorpus(CorpusVector vector)
+	{
+		switch (vector.Type)
+		{
+			case "f32":
+				AssertRealMatchesCorpus<float>(vector);
+				break;
+			case "f64":
+				AssertRealMatchesCorpus<double>(vector);
+				break;
+			default:
+				throw new NotSupportedException($"Corpus vector declares unsupported real type '{vector.Type}'.");
+		}
+	}
+
+	static void AssertRealMatchesCorpus<T>(CorpusVector vector) where T : IFloatingPoint<T>
+	{
+		var detectSeparators = vector.Format?.IsSeparatorDetect ?? false;
+		var result = RealParser.ParseRequired<T>(vector.Input, CultureInfo.InvariantCulture, detectSeparators);
 		if (vector.ExpectSuccess)
 			result.TryGetValue(out Success<T> _).ShouldBeTrue();
 		else

@@ -1,6 +1,32 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Norse.Primitives.Tests;
+
+/// <summary>
+/// A corpus vector's <c>"format"</c> object — HyperCast's declared numeric notation, snake_case on
+/// the wire (<c>decimal_sep</c>/<c>group_sep</c>/<c>flags</c>) unlike every other corpus field, so
+/// each property carries an explicit <see cref="JsonPropertyNameAttribute"/> rather than relying on
+/// <see cref="CorpusVector"/>'s shared camelCase <c>Web</c> naming policy.
+/// </summary>
+/// <param name="DecimalSep">The declared decimal separator character.</param>
+/// <param name="GroupSep">The declared digit-group separator character.</param>
+/// <param name="Flags">
+/// HyperCast's <c>NumStyles</c> bit-for-bit (<c>Grouping</c> = 1, <c>Parentheses</c> = 2,
+/// <c>Exponent</c> = 4, <c>RadixPrefixes</c> = 8, <c>Percent</c> = 16, <c>SeparatorDetect</c> = 32,
+/// <c>All</c> = 63).
+/// </param>
+sealed record CorpusNumFormat(
+	[property: JsonPropertyName("decimal_sep")] string DecimalSep,
+	[property: JsonPropertyName("group_sep")] string GroupSep,
+	[property: JsonPropertyName("flags")] int Flags)
+{
+	const int SeparatorDetectFlag = 32;
+
+	/// <summary><see langword="true"/> when this format's flags declare HyperCast's <c>SeparatorDetect</c> lenience.</summary>
+	internal bool IsSeparatorDetect =>
+		(Flags & SeparatorDetectFlag) != 0;
+}
 
 /// <summary>
 /// One HyperCast corpus test vector: an input string and its expected verdict. Matches the
@@ -20,12 +46,17 @@ namespace Norse.Primitives.Tests;
 /// hex-string GUID representation for <c>uuid.json</c>).
 /// </param>
 /// <param name="Type">
-/// The target scalar width this vector is written against (<c>integer.json</c> only —
-/// <c>"i8"</c>/<c>"i16"</c>/<c>"i32"</c>/<c>"i64"</c>/<c>"u8"</c>/<c>"u16"</c>/<c>"u32"</c>/
-/// <c>"u64"</c>). <see langword="null"/> for corpora with a single fixed target type
-/// (<c>boolean.json</c>, <c>uuid.json</c>).
+/// The target scalar width this vector is written against (<c>integer.json</c>: <c>"i8"</c>/
+/// <c>"i16"</c>/<c>"i32"</c>/<c>"i64"</c>/<c>"u8"</c>/<c>"u16"</c>/<c>"u32"</c>/<c>"u64"</c>;
+/// <c>real.json</c>: <c>"f32"</c>/<c>"f64"</c>). <see langword="null"/> for corpora with a single
+/// fixed target type (<c>boolean.json</c>, <c>uuid.json</c>).
 /// </param>
-sealed record CorpusVector(string Input, string Expect, object? Value, string? Type = null)
+/// <param name="Format">
+/// The declared numeric notation override (<c>real.json</c>/<c>integer.json</c> only) — a
+/// non-default decimal/group separator pair and/or lenience flag set. <see langword="null"/> when
+/// the vector uses the corpus's own implicit invariant-with-every-lenience-on default.
+/// </param>
+sealed record CorpusVector(string Input, string Expect, object? Value, string? Type = null, CorpusNumFormat? Format = null)
 {
 	static readonly JsonSerializerOptions _options = new(JsonSerializerDefaults.Web);
 
