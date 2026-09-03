@@ -62,6 +62,7 @@ public static class BooleanParser
 			return HyperCast.Cast.Boolean(trimmed) switch
 			{
 				HyperCast.Success<bool> s => new Success<bool>(s.Value),
+				HyperCast.Fault { Reason: HyperCast.CastFailure.OutOfRange } => new Failure(ParseFailure.OutOfRange, trimmed, ExpectedType),
 				HyperCast.Fault => new Failure(ParseFailure.Malformed, trimmed, ExpectedType),
 			};
 

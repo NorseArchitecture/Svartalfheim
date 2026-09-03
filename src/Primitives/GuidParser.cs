@@ -47,6 +47,7 @@ public static class GuidParser
 			return HyperCast.Cast.Uuid(StripPrefix(trimmed)) switch
 			{
 				HyperCast.Success<Guid> s => new Success<Guid>(s.Value),
+				HyperCast.Fault { Reason: HyperCast.CastFailure.OutOfRange } => new Failure(ParseFailure.OutOfRange, trimmed, ExpectedType),
 				HyperCast.Fault => new Failure(ParseFailure.Malformed, trimmed, ExpectedType),
 			};
 
