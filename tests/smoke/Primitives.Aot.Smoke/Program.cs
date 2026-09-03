@@ -98,6 +98,22 @@ Check("DeterministicGuid derives a stable value from namespace and name", () =>
 	return first == second;
 });
 
+Check("SequentialGuid() publishes clean under AOT", () =>
+{
+	var value = new SequentialGuid();
+	_ = new SequentialGuid(value.Value, GuidByteOrder.Rfc9562); // throws if version/variant bits are wrong
+	return true;
+});
+
+Check("DeterministicGuid publishes clean under AOT", () =>
+	new DeterministicGuid(DeterministicGuid.Namespaces.Dns, "aot-smoke").Value != Guid.Empty);
+
+Check("SQL byte-order round trip publishes clean under AOT", () =>
+{
+	var value = new SequentialGuid();
+	return value.ToSqlOrder().ToRfcOrder().Value == value.Value;
+});
+
 if (failures > 0)
 {
 	Console.Error.WriteLine($"AOT smoke FAILED: {failures} check(s) failed.");
