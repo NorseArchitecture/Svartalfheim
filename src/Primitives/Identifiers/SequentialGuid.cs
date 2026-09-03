@@ -113,6 +113,13 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 			: Value.CompareTo(normalizedOther.Value);
 	}
 
+	// Bytes, not items -- chosen to keep the per-chunk stackalloc small and safe regardless of
+	// batch size. Drawing entropy per chunk rather than per item turns an N-syscall RNG cost
+	// (measured ~848 ns/item, dominating Fill's total time) into a single draw every
+	// EntropyChunkBytes / 6 items -- the batch is still capped at the 26-bit counter space, but
+	// the entropy buffer never grows past this regardless of how large that batch gets.
+	const int EntropyChunkBytes = 3072;
+
 	/// <summary>
 	/// Fills <paramref name="destination"/> with new values sharing a single current-time capture, each
 	/// claiming a contiguous slot in the process-global counter. All <see cref="GuidByteOrder.Rfc9562"/>.
@@ -130,13 +137,21 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 		var count = destination.Length;
 		var start = Interlocked.Add(ref _counter, count) - count + 1;
 
-		Span<byte> entropy = stackalloc byte[6];
-		for (var i = 0; i < count; i++)
+		Span<byte> entropyChunk = stackalloc byte[EntropyChunkBytes];
+		var chunkItemCapacity = EntropyChunkBytes / 6;
+
+		for (var offset = 0; offset < count; offset += chunkItemCapacity)
 		{
-			RandomNumberGenerator.Fill(entropy);
-			var counter = (start + i) & 0x3FFFFFF;
-			var value = SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, entropy);
-			destination[i] = new SequentialGuid(value, GuidByteOrder.Rfc9562);
+			var chunkCount = Math.Min(chunkItemCapacity, count - offset);
+			var chunk = entropyChunk[..(chunkCount * 6)];
+			RandomNumberGenerator.Fill(chunk);
+
+			for (var i = 0; i < chunkCount; i++)
+			{
+				var counter = (start + offset + i) & 0x3FFFFFF;
+				var value = SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, chunk.Slice(i * 6, 6));
+				destination[offset + i] = new SequentialGuid(value, GuidByteOrder.Rfc9562);
+			}
 		}
 	}
 

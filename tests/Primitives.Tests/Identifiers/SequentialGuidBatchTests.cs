@@ -41,6 +41,22 @@ public sealed class SequentialGuidBatchTests
 	}
 
 	[Fact]
+	void Should_produce_a_contiguous_increasing_sequence_across_entropy_chunk_boundaries()
+	{
+		// Entropy is drawn in fixed-size chunks (3072 bytes / 6 = 512 items per draw), not
+		// per item -- this batch spans multiple chunks, pinning that the counter and byte
+		// layout stay correct across the boundary, not just within one draw.
+		Span<SequentialGuid> destination = new SequentialGuid[1500];
+
+		SequentialGuid.Fill(destination);
+
+		SequentialGuid[] array = [.. destination];
+		array.Distinct().Count().ShouldBe(1500);
+		for (var i = 1; i < array.Length; i++)
+			array[i].CompareTo(array[i - 1]).ShouldBeGreaterThan(0);
+	}
+
+	[Fact]
 	void Should_do_nothing_when_destination_is_empty()
 	{
 		Span<SequentialGuid> destination = [];

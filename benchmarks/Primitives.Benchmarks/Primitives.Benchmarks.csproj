@@ -2,4 +2,13 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Primitives\Primitives.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+		<!--
+			Throwaway comparison rig for the HyperUuid blast-radius assessment, not yet
+			filed as a spec amendment. Not a dependency this realm has adopted; remove
+			once the #4 MAUI/mobile RID gap is resolved one way or the other.
+		-->
+		<PackageReference Include="HyperUuid" Version="*" />
+		<PackageReference Include="HyperCast" Version="*" />
+	</ItemGroup>
 </Project>
