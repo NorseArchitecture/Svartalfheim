@@ -101,4 +101,17 @@ public sealed class SequentialGuidBatchTests
 		foreach (var value in array)
 			GuidVersionBits.HasVersionAndVariant(value.Value, 7).ShouldBeTrue();
 	}
+
+	[Fact]
+	void Should_fill_destination_with_distinct_well_formed_values_on_the_native_path()
+	{
+		Span<SequentialGuid> destination = new SequentialGuid[10];
+
+		SequentialGuid.Fill(destination);
+
+		SequentialGuid[] array = [.. destination];
+		array.Distinct().Count().ShouldBe(10);
+		foreach (var value in array)
+			GuidVersionBits.HasVersionAndVariant(value.Value, 7).ShouldBeTrue();
+	}
 }
