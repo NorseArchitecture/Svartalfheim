@@ -110,7 +110,15 @@ public static class RealParser
 		if (typeof(T) == typeof(decimal) && CountDigits(trimmed) > DecimalDigitGuard)
 			return new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
 
-		if (NativeCapability.Available && provider is CultureInfo culture &&
+		// HyperCast.NumFormat has no currency-symbol concept at all (its own XML doc: "Currency
+		// symbols ... are deliberately not supported"), yet RealStyles includes
+		// AllowCurrencySymbol and the managed T.TryParse path genuinely honors a provider-declared
+		// currency symbol. Routing to native for any CultureInfo provider -- including one whose
+		// input actually carries a currency symbol -- would mis-route a well-formed managed-only
+		// input into a native Malformed. Gate on invariance, exactly like IntegerParser.Parse does
+		// for the identical reason: native is only sound when the caller's own provider carries no
+		// currency/grouping/negative-notation conventions of its own to honor.
+		if (NativeCapability.Available && provider is CultureInfo culture && IsInvariant(provider) &&
 			TryParseNative<T>(trimmed, HyperCast.NumFormat.From(culture), out var nativeResult))
 			return nativeResult;
 
@@ -126,6 +134,9 @@ public static class RealParser
 			(T.IsFinite(percent) ? new Success<T>(percent / T.CreateChecked(100)) : NonFiniteFailure<T>(body, trimmed)) :
 			new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
 	}
+
+	static bool IsInvariant(IFormatProvider provider) =>
+		ReferenceEquals(NumberFormatInfo.GetInstance(provider), NumberFormatInfo.InvariantInfo);
 
 	// The HyperCast.NumFormat.Detect profile is the native-side twin of ParseDetected below — same
 	// structural rules, HyperCast's own implementation. Routed here first (native available, no

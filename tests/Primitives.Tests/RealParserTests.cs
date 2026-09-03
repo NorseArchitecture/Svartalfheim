@@ -36,6 +36,32 @@ public sealed class RealParserTests
 	}
 
 	[Fact]
+	void Should_parse_currency_symbol_for_double_when_provider_is_culture_aware()
+	{
+		// Regression: the plain (non-detect) native branch used to route to HyperCast.Cast.Double
+		// for ANY CultureInfo provider, including one whose input carries a currency symbol.
+		// HyperCast.NumFormat has no currency-symbol concept at all, so native faulted this input
+		// as Malformed even though double (unlike decimal, which never native-routes) genuinely
+		// supports currency-symbol input via the managed T.TryParse(RealStyles, provider, ...)
+		// path. Gating the native branch behind IsInvariant(provider) -- IntegerParser's existing
+		// pattern -- routes this to the managed path instead, where it succeeds.
+		var actual = RealParser.ParseRequired<double>("$1,234.56", _enUs);
+		actual.TryGetValue(out Success<double> success).ShouldBeTrue();
+		success.Value.ShouldBe(1234.56);
+	}
+
+	[Fact]
+	void Should_parse_grouped_double_when_provider_is_invariant()
+	{
+		// The invariant-culture case is the one the native gate must keep routing natively (when
+		// HyperCast is available) -- confirms the IsInvariant(provider) gate added alongside the
+		// currency-symbol fix above does not regress the normal, culture-insensitive case.
+		var actual = RealParser.ParseRequired<double>("1,234.56", _invariant);
+		actual.TryGetValue(out Success<double> success).ShouldBeTrue();
+		success.Value.ShouldBe(1234.56);
+	}
+
+	[Fact]
 	void Should_honor_declared_decimal_separator_when_provider_is_german()
 	{
 		var actual = RealParser.ParseRequired<decimal>("1.234,5", _deDe);
