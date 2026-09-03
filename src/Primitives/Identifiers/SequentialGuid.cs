@@ -138,6 +138,25 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 		if (destination.IsEmpty)
 			return;
 
+		if (NativeCapability.Available)
+		{
+			FillNative(destination);
+			return;
+		}
+
+		FillManaged(destination);
+	}
+
+	static void FillNative(Span<SequentialGuid> destination)
+	{
+		Span<Guid> native = destination.Length <= 256 ? stackalloc Guid[destination.Length] : new Guid[destination.Length];
+		HyperUuid.UuidGenerator.FillV7(native);
+		for (var i = 0; i < destination.Length; i++)
+			destination[i] = new SequentialGuid(native[i], GuidByteOrder.Rfc9562);
+	}
+
+	static void FillManaged(Span<SequentialGuid> destination)
+	{
 		var unixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 		var count = destination.Length;
 		var start = Interlocked.Add(ref _counter, count) - count + 1;

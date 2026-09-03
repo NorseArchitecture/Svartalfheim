@@ -85,4 +85,20 @@ public sealed class SequentialGuidBatchTests
 	[Fact]
 	void Should_throw_when_count_exceeds_the_counter_space() =>
 		Should.Throw<ArgumentOutOfRangeException>(() => SequentialGuid.CreateMany(0x400_0001));
+
+	[Fact]
+	void Should_fill_destination_with_distinct_well_formed_values_on_the_managed_path()
+	{
+		var array = new SequentialGuid[10];
+
+		NativeCapability.ForManagedOnly(() =>
+		{
+			Span<SequentialGuid> destination = array;
+			SequentialGuid.Fill(destination);
+		});
+
+		array.Distinct().Count().ShouldBe(10);
+		foreach (var value in array)
+			GuidVersionBits.HasVersionAndVariant(value.Value, 7).ShouldBeTrue();
+	}
 }
