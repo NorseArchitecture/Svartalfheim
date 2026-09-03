@@ -3,10 +3,9 @@ using Norse.Primitives.Identifiers;
 
 namespace Norse.Primitives.Benchmarks;
 
-// HyperUuid blast-radius assessment (2026-09-03) -- head-to-head against this realm's own
-// zero-alloc managed Identifiers, the question benchmarks/Primitives.Benchmarks had no
-// evidence for yet. Not a permanent fixture: remove alongside the HyperUuid
-// PackageReference once the adoption question is settled either way.
+// HyperUuid identifier benchmarks -- proves the native path (wired behind NativeCapability in
+// src/Primitives/Identifiers) stays faster than the managed fallback. Permanent fixture: run
+// before/after any change to either engine's identifier generation.
 [MemoryDiagnoser]
 public class IdentifierBenchmarks
 {
