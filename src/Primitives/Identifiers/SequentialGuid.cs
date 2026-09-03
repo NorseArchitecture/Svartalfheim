@@ -37,15 +37,20 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 	/// <summary>Generates a new value from the current time. Always <see cref="GuidByteOrder.Rfc9562"/>.</summary>
 	public SequentialGuid()
 	{
+		Value = NativeCapability.Available ? HyperUuid.UuidGenerator.NewV7() : GenerateManagedV7();
+		Order = GuidByteOrder.Rfc9562;
+		Timestamp = SequentialGuidBytes.ExtractTimestamp(Value, Order);
+	}
+
+	static Guid GenerateManagedV7()
+	{
 		var unixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 		var counter = Interlocked.Increment(ref _counter) & 0x3FFFFFF;
 
 		Span<byte> entropy = stackalloc byte[6];
 		RandomNumberGenerator.Fill(entropy);
 
-		Value = SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, entropy);
-		Order = GuidByteOrder.Rfc9562;
-		Timestamp = SequentialGuidBytes.ExtractTimestamp(Value, Order);
+		return SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, entropy);
 	}
 
 	/// <summary>Wraps an existing value that this platform already produced, tagging it with its known byte order.</summary>

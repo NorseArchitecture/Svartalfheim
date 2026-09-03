@@ -136,4 +136,25 @@ public sealed class SequentialGuidTests
 
 		Should.Throw<InvalidOperationException>(act);
 	}
+
+	[Fact]
+	void Constructor_produces_a_well_formed_v7_value_on_the_native_path()
+	{
+		var value = new SequentialGuid();
+
+		GuidVersionBits.HasVersionAndVariant(value.Value, 7).ShouldBeTrue();
+		value.Order.ShouldBe(GuidByteOrder.Rfc9562);
+	}
+
+	[Fact]
+	void Constructor_produces_a_well_formed_v7_value_on_the_managed_path()
+	{
+		SequentialGuid value = default;
+
+		NativeCapability.ForManagedOnly(() =>
+			value = new SequentialGuid());
+
+		GuidVersionBits.HasVersionAndVariant(value.Value, 7).ShouldBeTrue();
+		value.Order.ShouldBe(GuidByteOrder.Rfc9562);
+	}
 }
