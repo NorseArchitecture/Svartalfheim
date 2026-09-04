@@ -160,4 +160,45 @@ public sealed class RealParserTests
 	[Fact]
 	void Should_throw_when_optional_provider_is_null() =>
 		Should.Throw<ArgumentNullException>(() => RealParser.ParseOptional<double>("1.5", null!));
+
+	[Fact]
+	void Should_fail_with_malformed_reason_rather_than_throw_when_decimal_input_is_entirely_repeated_separator()
+	{
+		// Regression: ParseDetected's normalization strips every occurrence of a repeated separator
+		// character wholesale (a grouping-only separator is deleted, not converted). Input that is
+		// ENTIRELY the repeated separator normalizes to an empty span, which used to be passed back
+		// into Parse<T> and throw IndexOutOfRangeException at trimmed[^1] -- decimal never routes
+		// native (TryParseNative only handles double/float), so this is the only path for it, on
+		// every platform.
+		var actual = RealParser.ParseRequired<decimal>("..", CultureInfo.InvariantCulture, detectSeparators: true);
+		actual.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
+
+	[Fact]
+	void Should_fail_with_malformed_reason_rather_than_throw_when_managed_double_input_is_entirely_repeated_separator()
+	{
+		// Same bug, forced onto the managed fallback path for double -- the native short-circuit
+		// (ParseDetectedNative) intercepts first on a native-capable host, so the managed-only
+		// fallback must still be exercised explicitly to prove it doesn't throw.
+		Failure failure = default;
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = RealParser.ParseRequired<double>(",,,", CultureInfo.InvariantCulture, detectSeparators: true);
+			actual.TryGetValue(out failure).ShouldBeTrue();
+		});
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
+
+	[Fact]
+	void Should_fail_with_malformed_reason_rather_than_throw_when_managed_float_input_is_entirely_repeated_separator()
+	{
+		Failure failure = default;
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = RealParser.ParseRequired<float>("...", CultureInfo.InvariantCulture, detectSeparators: true);
+			actual.TryGetValue(out failure).ShouldBeTrue();
+		});
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
 }

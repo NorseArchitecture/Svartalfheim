@@ -149,12 +149,23 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 		FillManaged(destination);
 	}
 
+	// Chunked exactly like FillManaged below, for the same reason: sizing a buffer to the whole
+	// batch scales with the caller's batch size, and at the documented max (67,108,864, the 26-bit
+	// counter space) that's roughly 1 GB in one shot. A single reusable 256-Guid stack buffer,
+	// refilled once per chunk, keeps this bounded regardless of how large destination gets.
+	const int NativeChunkSize = 256;
+
 	static void FillNative(Span<SequentialGuid> destination)
 	{
-		Span<Guid> native = destination.Length <= 256 ? stackalloc Guid[destination.Length] : new Guid[destination.Length];
-		HyperUuid.UuidGenerator.FillV7(native);
-		for (var i = 0; i < destination.Length; i++)
-			destination[i] = new SequentialGuid(native[i], GuidByteOrder.Rfc9562);
+		Span<Guid> chunkBuffer = stackalloc Guid[NativeChunkSize];
+		for (var offset = 0; offset < destination.Length; offset += NativeChunkSize)
+		{
+			var chunkCount = Math.Min(NativeChunkSize, destination.Length - offset);
+			var chunk = chunkBuffer[..chunkCount];
+			HyperUuid.UuidGenerator.FillV7(chunk);
+			for (var i = 0; i < chunkCount; i++)
+				destination[offset + i] = new SequentialGuid(chunk[i], GuidByteOrder.Rfc9562);
+		}
 	}
 
 	static void FillManaged(Span<SequentialGuid> destination)

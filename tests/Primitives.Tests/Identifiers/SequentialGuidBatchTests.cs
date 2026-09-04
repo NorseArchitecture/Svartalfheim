@@ -114,4 +114,33 @@ public sealed class SequentialGuidBatchTests
 		foreach (var value in array)
 			GuidVersionBits.HasVersionAndVariant(value.Value, 7).ShouldBeTrue();
 	}
+
+	[Fact]
+	void Should_not_allocate_an_unbounded_native_buffer_for_a_large_batch()
+	{
+		// Regression: FillNative used to size its Guid buffer to the whole batch once destination
+		// exceeded 256 items (`new Guid[destination.Length]`) -- at the documented max batch size
+		// (67,108,864, the 26-bit counter space) that's roughly 1 GB in one shot. It's now chunked
+		// in fixed 256-item slices through a single reusable stack buffer, mirroring FillManaged's
+		// own entropy-chunking fix. This only proves the native path (Available must be true on
+		// this host) since forcing managed-only inside GC measurement would only exercise the
+		// already-bounded FillManaged path.
+		NativeCapability.Available.ShouldBeTrue();
+
+		const int BatchSize = 100_000;
+		var array = new SequentialGuid[BatchSize];
+
+		// Warm up JIT/native library loading before measuring, so first-call overhead doesn't
+		// dominate the allocation delta.
+		SequentialGuid.Fill(array.AsSpan(0, 16));
+
+		var before = GC.GetAllocatedBytesForCurrentThread();
+		SequentialGuid.Fill(array);
+		var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+		// A single Guid[BatchSize] heap array alone would be BatchSize * 16 bytes (1.6 MB here);
+		// bounded chunking keeps total allocation well under that regardless of batch size. The
+		// SequentialGuid[] destination itself is stack/caller-owned, not counted here.
+		allocated.ShouldBeLessThan(BatchSize * 16L);
+	}
 }

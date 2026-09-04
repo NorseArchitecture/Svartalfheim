@@ -99,12 +99,15 @@ public static class DateOnlyParser
 	// the corpus on every other vector, so the exact-format call still does the rest of the work.
 	static Result<DateOnly> ParseIsoManaged(ReadOnlySpan<char> trimmed)
 	{
-		// Structural shape first (fixed length, dashes at the "yyyy-MM-dd" positions, month/day
-		// spans all ASCII digits) -- only a genuinely well-formed "0000-MM-dd" token gets the
-		// OutOfRange verdict; a wrong-separator string (e.g. "0000/01/01") or one with a non-digit
-		// or otherwise invalid month/day (e.g. "0000-ab-01", "0000-99-99") stays Malformed --
-		// TryParseExact below is still the authority on whether the month/day values themselves
-		// are in range (1-12 / valid day-of-month).
+		// Structural shape only (fixed length, dashes at the "yyyy-MM-dd" positions, year literally
+		// "0000", month/day spans all ASCII digits) -- this promotes to OutOfRange whenever the
+		// year is "0000" and the month/day characters are digits, regardless of whether those
+		// digits form a calendar-valid month/day. It does NOT perform calendar-range validation:
+		// "0000-99-99" passes this check (both spans are all-digit) and is promoted to OutOfRange
+		// even though 99 is not a valid month or day. A wrong-separator string (e.g. "0000/01/01")
+		// or one with a genuinely non-digit month/day (e.g. "0000-ab-01") fails this structural
+		// check and falls through to TryParseExact below, which is the only authority on whether
+		// month/day values are in calendar range (1-12 / valid day-of-month) for any non-"0000" year.
 		if (trimmed.Length == IsoFormat.Length && trimmed[4] == '-' && trimmed[7] == '-' &&
 			trimmed[..4].SequenceEqual("0000") && AllAsciiDigits(trimmed[5..7]) && AllAsciiDigits(trimmed[8..10]))
 			return new Failure(ParseFailure.OutOfRange, trimmed, ExpectedType, IsoLabel);

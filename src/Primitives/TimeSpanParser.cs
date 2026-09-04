@@ -405,8 +405,8 @@ public static class TimeSpanParser
 
 	enum DurationOutcome
 	{
-		Malformed,
-		OutOfRange,
-		Ok
+		Malformed = 0,
+		OutOfRange = 1,
+		Ok = 2
 	}
 }

@@ -104,6 +104,15 @@ public static class RealParser
 	static Result<T> Parse<T>(ReadOnlySpan<char> trimmed, IFormatProvider provider, bool detectSeparators)
 		where T : IFloatingPoint<T>
 	{
+		// Guarded here, not just in ParseDetected, so every current and future path into Parse
+		// with a possibly-empty span is covered. ParseDetected's separator-stripping normalization
+		// can reduce input that was entirely repeated-separator noise (".." , ",,,") down to an
+		// empty span; falling through to trimmed[^1] below would throw IndexOutOfRangeException
+		// on that empty span. Malformed, not Empty -- the caller's original input wasn't empty, it
+		// was fully consumed as separator noise, which is a grammar failure, not an absence.
+		if (trimmed.IsEmpty)
+			return new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
+
 		if (detectSeparators)
 			return ParseDetected<T>(trimmed);
 

@@ -2,8 +2,9 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Norse.Primitives.Tests;
 
-// Runs in its own collection: NativeCapability.ForManagedOnly mutates process-global state and
-// must not race against any other test reading NativeCapability.Available concurrently.
+// Runs in its own collection: NativeCapability.ForManagedOnly mutates thread-local state and
+// must not race against another test on the same thread reentrantly overriding
+// NativeCapability.Available concurrently.
 [Collection(nameof(NativeCapabilityCollection))]
 public sealed class NativeCapabilityTests
 {
