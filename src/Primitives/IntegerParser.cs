@@ -187,7 +187,8 @@ public static class IntegerParser
 		if (digits.IsEmpty)
 			return new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
 
-		Span<char> magnitude = stackalloc char[digits.Length + 1];
+		var magnitudeLength = digits.Length + 1;
+		Span<char> magnitude = magnitudeLength <= 128 ? stackalloc char[magnitudeLength] : new char[magnitudeLength];
 		magnitude[0] = '0';
 		digits.CopyTo(magnitude[1..]);
 		return BigInteger.TryParse(magnitude, style, CultureInfo.InvariantCulture, out _) ?

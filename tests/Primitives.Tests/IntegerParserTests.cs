@@ -172,4 +172,15 @@ public sealed class IntegerParserTests
 		result.TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
 	}
+
+	[Fact]
+	void Should_return_Malformed_when_hex_radix_prefix_is_present_but_digits_are_invalid()
+	{
+		// "ZZ" is never valid hex digit text -- distinct from "0x1FF" (well-formed hex, just too
+		// wide for sbyte, which is OutOfRange), this must still collapse to Malformed.
+		var result = IntegerParser.ParseRequired<sbyte>("0xZZ", CultureInfo.InvariantCulture);
+
+		result.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
 }
