@@ -2,6 +2,10 @@ using System.Globalization;
 
 namespace Norse.Primitives.Tests;
 
+// Runs in NativeCapabilityCollection: the "_on_the_forced_managed_path" theories/facts below call
+// NativeCapability.ForManagedOnly, which mutates thread-local state that must not race another
+// test reading NativeCapability.Available concurrently.
+[Collection(nameof(NativeCapabilityCollection))]
 public sealed class DateOnlyParserTests
 {
 	const string AllWhitespace = " \t\r\n\f ";
@@ -10,15 +14,30 @@ public sealed class DateOnlyParserTests
 		_enUs = CultureInfo.GetCultureInfo("en-US"),
 		_enGb = CultureInfo.GetCultureInfo("en-GB");
 
+	public static TheoryData<string> RecognizedIsoDateInputs =>
+	[
+		"2026-01-02",
+		"  2026-01-02  ",
+	];
+
 	[Theory]
-	[InlineData("2026-01-02")]
-	[InlineData("  2026-01-02  ")]
+	[MemberData(nameof(RecognizedIsoDateInputs))]
 	void Should_parse_value_when_iso_date_is_recognized(string input)
 	{
 		var actual = DateOnlyParser.ParseRequired(input);
 		actual.TryGetValue(out Success<DateOnly> success).ShouldBeTrue();
 		success.Value.ShouldBe(new(2026, 1, 2));
 	}
+
+	[Theory]
+	[MemberData(nameof(RecognizedIsoDateInputs))]
+	void Should_parse_value_when_iso_date_is_recognized_on_the_forced_managed_path(string input) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = DateOnlyParser.ParseRequired(input);
+			actual.TryGetValue(out Success<DateOnly> success).ShouldBeTrue();
+			success.Value.ShouldBe(new(2026, 1, 2));
+		});
 
 	[Theory]
 	[InlineData("1/2/2026")]          // US slash — not ISO
@@ -45,6 +64,16 @@ public sealed class DateOnlyParserTests
 		DateOnlyParser.ParseRequired("9999-12-31").TryGetValue(out Success<DateOnly> max).ShouldBeTrue();
 		max.Value.ShouldBe(DateOnly.MaxValue);
 	}
+
+	[Fact]
+	void Should_parse_the_representable_boundary_dates_as_ordinary_successes_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			DateOnlyParser.ParseRequired("0001-01-01").TryGetValue(out Success<DateOnly> min).ShouldBeTrue();
+			min.Value.ShouldBe(DateOnly.MinValue);
+			DateOnlyParser.ParseRequired("9999-12-31").TryGetValue(out Success<DateOnly> max).ShouldBeTrue();
+			max.Value.ShouldBe(DateOnly.MaxValue);
+		});
 
 	[Fact]
 	void Should_fail_with_out_of_range_reason_for_a_well_formed_but_unrepresentable_year()
@@ -130,6 +159,16 @@ public sealed class DateOnlyParserTests
 		actual.Value.TryGetValue(out Success<DateOnly> success).ShouldBeTrue();
 		success.Value.ShouldBe(new(2026, 1, 2));
 	}
+
+	[Fact]
+	void Should_parse_value_when_optional_iso_input_is_recognized_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = DateOnlyParser.ParseOptional("2026-01-02");
+			actual.HasValue.ShouldBeTrue();
+			actual.Value.TryGetValue(out Success<DateOnly> success).ShouldBeTrue();
+			success.Value.ShouldBe(new(2026, 1, 2));
+		});
 
 	[Fact]
 	void Should_throw_when_exact_provider_is_null() =>

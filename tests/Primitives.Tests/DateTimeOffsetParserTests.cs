@@ -2,15 +2,24 @@ using System.Globalization;
 
 namespace Norse.Primitives.Tests;
 
+// Runs in NativeCapabilityCollection: the "_on_the_forced_managed_path" theories/facts below call
+// NativeCapability.ForManagedOnly, which mutates thread-local state that must not race another
+// test reading NativeCapability.Available concurrently.
+[Collection(nameof(NativeCapabilityCollection))]
 public sealed class DateTimeOffsetParserTests
 {
 	const string AllWhitespace = " \t\r\n\f ";
 
 	static readonly IFormatProvider _invariant = CultureInfo.InvariantCulture;
 
+	public static TheoryData<string> UtcZoneInputs =>
+	[
+		"2026-01-02T15:04:05Z",
+		"2026-01-02T15:04:05.123Z",
+	];
+
 	[Theory]
-	[InlineData("2026-01-02T15:04:05Z")]
-	[InlineData("2026-01-02T15:04:05.123Z")]
+	[MemberData(nameof(UtcZoneInputs))]
 	void Should_parse_utc_zone_to_zero_offset(string input)
 	{
 		var actual = DateTimeOffsetParser.ParseRequired(input);
@@ -18,6 +27,17 @@ public sealed class DateTimeOffsetParserTests
 		success.Value.Offset.ShouldBe(TimeSpan.Zero);
 		success.Value.Hour.ShouldBe(15);
 	}
+
+	[Theory]
+	[MemberData(nameof(UtcZoneInputs))]
+	void Should_parse_utc_zone_to_zero_offset_on_the_forced_managed_path(string input) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = DateTimeOffsetParser.ParseRequired(input);
+			actual.TryGetValue(out Success<DateTimeOffset> success).ShouldBeTrue();
+			success.Value.Offset.ShouldBe(TimeSpan.Zero);
+			success.Value.Hour.ShouldBe(15);
+		});
 
 	[Fact]
 	void Should_normalize_explicit_offset_to_utc()
@@ -28,6 +48,17 @@ public sealed class DateTimeOffsetParserTests
 		success.Value.Offset.ShouldBe(TimeSpan.Zero);
 		success.Value.Hour.ShouldBe(10);
 	}
+
+	[Fact]
+	void Should_normalize_explicit_offset_to_utc_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			// 15:04:05+05:00 is 10:04:05Z
+			DateTimeOffsetParser.ParseRequired("2026-01-02T15:04:05+05:00")
+				.TryGetValue(out Success<DateTimeOffset> success).ShouldBeTrue();
+			success.Value.Offset.ShouldBe(TimeSpan.Zero);
+			success.Value.Hour.ShouldBe(10);
+		});
 
 	[Theory]
 	[InlineData("2026-01-02T15:04:05")]      // zone-less — ambiguous instant, rejected

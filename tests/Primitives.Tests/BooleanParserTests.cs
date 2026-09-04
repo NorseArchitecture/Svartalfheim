@@ -1,62 +1,71 @@
 namespace Norse.Primitives.Tests;
 
+// Runs in NativeCapabilityCollection: the "_on_the_forced_managed_path" theories below call
+// NativeCapability.ForManagedOnly, which mutates thread-local state that must not race another
+// test reading NativeCapability.Available concurrently.
+[Collection(nameof(NativeCapabilityCollection))]
 public sealed class BooleanParserTests
 {
 	const string AllWhitespace = " \t\r\n\f ";
 
+	public static TheoryData<string, bool> RecognizedInputs => new()
+	{
+		{ "true", true },
+		{ "True", true },
+		{ "TRUE", true },
+		{ "t", true },
+		{ "T", true },
+		{ "false", false },
+		{ "False", false },
+		{ "FALSE", false },
+		{ "f", false },
+		{ "F", false },
+		{ "yes", true },
+		{ "Yes", true },
+		{ "YES", true },
+		{ "y", true },
+		{ "Y", true },
+		{ "no", false },
+		{ "No", false },
+		{ "NO", false },
+		{ "n", false },
+		{ "N", false },
+		{ "1", true },
+		{ "0", false },
+		{ "on", true },
+		{ "On", true },
+		{ "ON", true },
+		{ "off", false },
+		{ "Off", false },
+		{ "OFF", false },
+		{ "enabled", true },
+		{ "Enabled", true },
+		{ "ENABLED", true },
+		{ "disabled", false },
+		{ "Disabled", false },
+		{ "DISABLED", false },
+		{ "active", true },
+		{ "Active", true },
+		{ "inactive", false },
+		{ "InAcTiVe", false },
+		{ "checked", true },
+		{ "CheckeD", true },
+		{ "unchecked", false },
+		{ "UnchEcked", false },
+		{ "in", true },
+		{ "In", true },
+		{ "out", false },
+		{ "Out", false },
+		{ "\ttrue\n", true },
+		{ "  Y  ", true },
+		{ "tRuE", true },
+		{ "fAlSe", false },
+		{ " Y ", true },
+	};
+
 	[Theory]
-	[InlineData("true")]
-	[InlineData("True")]
-	[InlineData("TRUE")]
-	[InlineData("t")]
-	[InlineData("T")]
-	[InlineData("false", false)]
-	[InlineData("False", false)]
-	[InlineData("FALSE", false)]
-	[InlineData("f", false)]
-	[InlineData("F", false)]
-	[InlineData("yes")]
-	[InlineData("Yes")]
-	[InlineData("YES")]
-	[InlineData("y")]
-	[InlineData("Y")]
-	[InlineData("no", false)]
-	[InlineData("No", false)]
-	[InlineData("NO", false)]
-	[InlineData("n", false)]
-	[InlineData("N", false)]
-	[InlineData("1")]
-	[InlineData("0", false)]
-	[InlineData("on")]
-	[InlineData("On")]
-	[InlineData("ON")]
-	[InlineData("off", false)]
-	[InlineData("Off", false)]
-	[InlineData("OFF", false)]
-	[InlineData("enabled")]
-	[InlineData("Enabled")]
-	[InlineData("ENABLED")]
-	[InlineData("disabled", false)]
-	[InlineData("Disabled", false)]
-	[InlineData("DISABLED", false)]
-	[InlineData("active")]
-	[InlineData("Active")]
-	[InlineData("inactive", false)]
-	[InlineData("InAcTiVe", false)]
-	[InlineData("checked")]
-	[InlineData("CheckeD")]
-	[InlineData("unchecked", false)]
-	[InlineData("UnchEcked", false)]
-	[InlineData("in")]
-	[InlineData("In")]
-	[InlineData("out", false)]
-	[InlineData("Out", false)]
-	[InlineData("\ttrue\n")]
-	[InlineData("  Y  ")]
-	[InlineData("tRuE")]
-	[InlineData("fAlSe", false)]
-	[InlineData(" Y ")]
-	void Should_parse_value_when_input_is_recognized(string input, bool expected = true)
+	[MemberData(nameof(RecognizedInputs))]
+	void Should_parse_value_when_input_is_recognized(string input, bool expected)
 	{
 		var actual = BooleanParser.ParseRequired(input);
 		actual.TryGetValue(out Success<bool> success).ShouldBeTrue();
@@ -64,15 +73,41 @@ public sealed class BooleanParserTests
 	}
 
 	[Theory]
-	[InlineData("yes")]
-	[InlineData("0", false)]
-	void Should_parse_value_when_optional_input_is_recognized(string input, bool expected = true)
+	[MemberData(nameof(RecognizedInputs))]
+	void Should_parse_value_when_input_is_recognized_on_the_forced_managed_path(string input, bool expected) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = BooleanParser.ParseRequired(input);
+			actual.TryGetValue(out Success<bool> success).ShouldBeTrue();
+			success.Value.ShouldBe(expected);
+		});
+
+	public static TheoryData<string, bool> RecognizedOptionalInputs => new()
+	{
+		{ "yes", true },
+		{ "0", false },
+	};
+
+	[Theory]
+	[MemberData(nameof(RecognizedOptionalInputs))]
+	void Should_parse_value_when_optional_input_is_recognized(string input, bool expected)
 	{
 		var actual = BooleanParser.ParseOptional(input);
 		actual.HasValue.ShouldBeTrue();
 		actual.Value.TryGetValue(out Success<bool> success).ShouldBeTrue();
 		success.Value.ShouldBe(expected);
 	}
+
+	[Theory]
+	[MemberData(nameof(RecognizedOptionalInputs))]
+	void Should_parse_value_when_optional_input_is_recognized_on_the_forced_managed_path(string input, bool expected) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = BooleanParser.ParseOptional(input);
+			actual.HasValue.ShouldBeTrue();
+			actual.Value.TryGetValue(out Success<bool> success).ShouldBeTrue();
+			success.Value.ShouldBe(expected);
+		});
 
 	[Theory]
 	[InlineData(null)]

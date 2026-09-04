@@ -2,6 +2,10 @@ using System.Globalization;
 
 namespace Norse.Primitives.Tests;
 
+// Runs in NativeCapabilityCollection: the "_on_the_forced_managed_path" theories/facts below call
+// NativeCapability.ForManagedOnly, which mutates thread-local state that must not race another
+// test reading NativeCapability.Available concurrently.
+[Collection(nameof(NativeCapabilityCollection))]
 public sealed class RealParserTests
 {
 	const string AllWhitespace = " \t\r\n\f ";
@@ -11,21 +15,36 @@ public sealed class RealParserTests
 		_enUs = CultureInfo.GetCultureInfo("en-US"),
 		_deDe = CultureInfo.GetCultureInfo("de-DE");
 
+	public static TheoryData<string, double> RecognizedDoubleInputs => new()
+	{
+		{ "1.5", 1.5 },
+		{ "  2.25  ", 2.25 },
+		{ "-3.5", -3.5 },
+		{ "1,234.5", 1234.5 },   // thousands + decimal, invariant
+		{ "(2.5)", -2.5 },       // accounting negative
+		{ "2.5e3", 2500 },       // scientific
+		{ "50%", 0.5 },          // percentage -> divide by 100
+		{ "25.5%", 0.255 },
+	};
+
 	[Theory]
-	[InlineData("1.5", 1.5)]
-	[InlineData("  2.25  ", 2.25)]
-	[InlineData("-3.5", -3.5)]
-	[InlineData("1,234.5", 1234.5)]   // thousands + decimal, invariant
-	[InlineData("(2.5)", -2.5)]       // accounting negative
-	[InlineData("2.5e3", 2500)]       // scientific
-	[InlineData("50%", 0.5)]          // percentage -> divide by 100
-	[InlineData("25.5%", 0.255)]
+	[MemberData(nameof(RecognizedDoubleInputs))]
 	void Should_parse_value_when_double_input_is_recognized(string input, double expected)
 	{
 		var actual = RealParser.ParseRequired<double>(input, _invariant);
 		actual.TryGetValue(out Success<double> success).ShouldBeTrue();
 		success.Value.ShouldBe(expected);
 	}
+
+	[Theory]
+	[MemberData(nameof(RecognizedDoubleInputs))]
+	void Should_parse_value_when_double_input_is_recognized_on_the_forced_managed_path(string input, double expected) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = RealParser.ParseRequired<double>(input, _invariant);
+			actual.TryGetValue(out Success<double> success).ShouldBeTrue();
+			success.Value.ShouldBe(expected);
+		});
 
 	[Fact]
 	void Should_parse_currency_when_provider_declares_the_symbol()
@@ -60,6 +79,15 @@ public sealed class RealParserTests
 		actual.TryGetValue(out Success<double> success).ShouldBeTrue();
 		success.Value.ShouldBe(1234.56);
 	}
+
+	[Fact]
+	void Should_parse_grouped_double_when_provider_is_invariant_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = RealParser.ParseRequired<double>("1,234.56", _invariant);
+			actual.TryGetValue(out Success<double> success).ShouldBeTrue();
+			success.Value.ShouldBe(1234.56);
+		});
 
 	[Fact]
 	void Should_honor_declared_decimal_separator_when_provider_is_german()
@@ -152,6 +180,16 @@ public sealed class RealParserTests
 		actual.Value.TryGetValue(out Success<float> success).ShouldBeTrue();
 		success.Value.ShouldBe(1.5f);
 	}
+
+	[Fact]
+	void Should_parse_value_when_optional_input_is_recognized_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = RealParser.ParseOptional<float>("1.5", _invariant);
+			actual.HasValue.ShouldBeTrue();
+			actual.Value.TryGetValue(out Success<float> success).ShouldBeTrue();
+			success.Value.ShouldBe(1.5f);
+		});
 
 	[Fact]
 	void Should_throw_when_required_provider_is_null() =>

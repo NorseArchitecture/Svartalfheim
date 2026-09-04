@@ -2,6 +2,10 @@ using System.Globalization;
 
 namespace Norse.Primitives.Tests;
 
+// Runs in NativeCapabilityCollection: the "_on_the_forced_managed_path" theories/facts below call
+// NativeCapability.ForManagedOnly, which mutates thread-local state that must not race another
+// test reading NativeCapability.Available concurrently.
+[Collection(nameof(NativeCapabilityCollection))]
 public sealed class TimeSpanParserTests
 {
 	const string AllWhitespace = " \t\r\n\f ";
@@ -29,11 +33,29 @@ public sealed class TimeSpanParserTests
 	}
 
 	[Fact]
+	void Should_parse_colon_and_iso_to_the_same_span_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			TimeSpanParser.ParseRequired("01:30:00").TryGetValue(out Success<TimeSpan> colon).ShouldBeTrue();
+			TimeSpanParser.ParseRequired("PT1H30M").TryGetValue(out Success<TimeSpan> iso).ShouldBeTrue();
+			colon.Value.ShouldBe(new(1, 30, 0));
+			iso.Value.ShouldBe(new(1, 30, 0));
+		});
+
+	[Fact]
 	void Should_parse_iso_weeks_designator()
 	{
 		TimeSpanParser.ParseRequired("P2W").TryGetValue(out Success<TimeSpan> weeks).ShouldBeTrue();
 		weeks.Value.ShouldBe(TimeSpan.FromDays(14));
 	}
+
+	[Fact]
+	void Should_parse_iso_weeks_designator_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			TimeSpanParser.ParseRequired("P2W").TryGetValue(out Success<TimeSpan> weeks).ShouldBeTrue();
+			weeks.Value.ShouldBe(TimeSpan.FromDays(14));
+		});
 
 	[Fact]
 	void Should_parse_iso_fractional_seconds()
@@ -43,6 +65,14 @@ public sealed class TimeSpanParserTests
 	}
 
 	[Fact]
+	void Should_parse_iso_fractional_seconds_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			TimeSpanParser.ParseRequired("PT1.5S").TryGetValue(out Success<TimeSpan> frac).ShouldBeTrue();
+			frac.Value.ShouldBe(TimeSpan.FromSeconds(1.5));
+		});
+
+	[Fact]
 	void Should_parse_negative_iso_duration()
 	{
 		TimeSpanParser.ParseRequired("-PT1H").TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
@@ -50,11 +80,27 @@ public sealed class TimeSpanParserTests
 	}
 
 	[Fact]
+	void Should_parse_negative_iso_duration_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			TimeSpanParser.ParseRequired("-PT1H").TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
+			success.Value.ShouldBe(TimeSpan.FromHours(-1));
+		});
+
+	[Fact]
 	void Should_accept_zero_as_valid()
 	{
 		TimeSpanParser.ParseRequired("00:00:00").TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
 		success.Value.ShouldBe(TimeSpan.Zero);
 	}
+
+	[Fact]
+	void Should_accept_zero_as_valid_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			TimeSpanParser.ParseRequired("00:00:00").TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
+			success.Value.ShouldBe(TimeSpan.Zero);
+		});
 
 	[Theory]
 	[InlineData("P1Y")]   // years are not fixed durations
@@ -145,29 +191,57 @@ public sealed class TimeSpanParserTests
 
 	// The short colon form (hh:mm, no seconds) and single-digit hh/mm/ss widths -- confirmed
 	// against HyperCast's own corpus and the native binary directly.
+	public static TheoryData<string, int, int, int> ShortAndSingleDigitColonForms => new()
+	{
+		{ "01:30", 1, 30, 0 },
+		{ "1:30", 1, 30, 0 },
+		{ "1:5:00", 1, 5, 0 },
+		{ "01:02:3", 1, 2, 3 },
+	};
+
 	[Theory]
-	[InlineData("01:30", 1, 30, 0)]
-	[InlineData("1:30", 1, 30, 0)]
-	[InlineData("1:5:00", 1, 5, 0)]
-	[InlineData("01:02:3", 1, 2, 3)]
+	[MemberData(nameof(ShortAndSingleDigitColonForms))]
 	void Should_parse_short_and_single_digit_colon_forms(string input, int hours, int minutes, int seconds)
 	{
 		TimeSpanParser.ParseRequired(input).TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
 		success.Value.ShouldBe(new TimeSpan(hours, minutes, seconds));
 	}
 
+	[Theory]
+	[MemberData(nameof(ShortAndSingleDigitColonForms))]
+	void Should_parse_short_and_single_digit_colon_forms_on_the_forced_managed_path(string input, int hours, int minutes, int seconds) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			TimeSpanParser.ParseRequired(input).TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
+			success.Value.ShouldBe(new TimeSpan(hours, minutes, seconds));
+		});
+
 	// Protobuf JSON seconds ("3.5s"), case-insensitive on the suffix, with either '.' or ','
 	// as the fractional decimal mark -- HyperCast's third duration shape, absent from the
 	// pre-Task-14 grammar entirely.
+	public static TheoryData<string, int> ProtobufSecondsForm => new()
+	{
+		{ "5400s", 5400 },
+		{ "5400S", 5400 },
+		{ "0s", 0 },
+	};
+
 	[Theory]
-	[InlineData("5400s", 5400)]
-	[InlineData("5400S", 5400)]
-	[InlineData("0s", 0)]
+	[MemberData(nameof(ProtobufSecondsForm))]
 	void Should_parse_the_protobuf_seconds_form(string input, int expectedSeconds)
 	{
 		TimeSpanParser.ParseRequired(input).TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
 		success.Value.ShouldBe(TimeSpan.FromSeconds(expectedSeconds));
 	}
+
+	[Theory]
+	[MemberData(nameof(ProtobufSecondsForm))]
+	void Should_parse_the_protobuf_seconds_form_on_the_forced_managed_path(string input, int expectedSeconds) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			TimeSpanParser.ParseRequired(input).TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
+			success.Value.ShouldBe(TimeSpan.FromSeconds(expectedSeconds));
+		});
 
 	[Fact]
 	void Should_parse_negative_protobuf_seconds_with_a_fraction()
@@ -176,16 +250,38 @@ public sealed class TimeSpanParserTests
 		success.Value.ShouldBe(TimeSpan.FromSeconds(-1.5));
 	}
 
+	[Fact]
+	void Should_parse_negative_protobuf_seconds_with_a_fraction_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			TimeSpanParser.ParseRequired("-1.5s").TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
+			success.Value.ShouldBe(TimeSpan.FromSeconds(-1.5));
+		});
+
 	// A comma decimal mark is accepted wherever a period is, on every one of the three grammars.
+	public static TheoryData<string> CommaDecimalMarkInputs =>
+	[
+		"PT1,5S",
+		"0:00:01,5",
+		"-1,5s",
+	];
+
 	[Theory]
-	[InlineData("PT1,5S")]
-	[InlineData("0:00:01,5")]
-	[InlineData("-1,5s")]
+	[MemberData(nameof(CommaDecimalMarkInputs))]
 	void Should_accept_a_comma_decimal_mark(string input)
 	{
 		TimeSpanParser.ParseRequired(input).TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
 		success.Value.Duration().ShouldBe(TimeSpan.FromSeconds(1.5));
 	}
+
+	[Theory]
+	[MemberData(nameof(CommaDecimalMarkInputs))]
+	void Should_accept_a_comma_decimal_mark_on_the_forced_managed_path(string input) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			TimeSpanParser.ParseRequired(input).TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
+			success.Value.Duration().ShouldBe(TimeSpan.FromSeconds(1.5));
+		});
 
 	// A tenth-or-later fractional digit has no tick representation and is unrecognized --
 	// mirrors DateTimeOffsetParser's identical rule for its own fractional-second tail.
