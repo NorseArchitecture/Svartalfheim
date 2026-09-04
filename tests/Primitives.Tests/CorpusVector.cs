@@ -56,13 +56,55 @@ sealed record CorpusNumFormat(
 /// non-default decimal/group separator pair and/or lenience flag set. <see langword="null"/> when
 /// the vector uses the corpus's own implicit invariant-with-every-lenience-on default.
 /// </param>
-sealed record CorpusVector(string Input, string Expect, object? Value, string? Type = null, CorpusNumFormat? Format = null)
+/// <param name="Seconds">
+/// The expected whole-second component (<c>timestamp.json</c>/<c>duration.json</c> only) —
+/// Unix epoch seconds for a timestamp, elapsed seconds for a duration. <see langword="null"/> for
+/// every other corpus.
+/// </param>
+/// <param name="Nanos">
+/// The expected nanosecond component (<c>timestamp.json</c>/<c>duration.json</c>: the fractional
+/// remainder alongside <see cref="Seconds"/>, negative when the duration itself is negative;
+/// <c>time.json</c>: the full nanoseconds-since-midnight value, standing alone with no
+/// <see cref="Seconds"/> sibling). <see langword="null"/> for every other corpus.
+/// </param>
+/// <param name="Year">The expected calendar year (<c>date.json</c> only). <see langword="null"/> for every other corpus.</param>
+/// <param name="Month">The expected calendar month (<c>date.json</c> only). <see langword="null"/> for every other corpus.</param>
+/// <param name="Day">The expected calendar day (<c>date.json</c> only). <see langword="null"/> for every other corpus.</param>
+sealed record CorpusVector(string Input, string Expect, object? Value, string? Type = null, CorpusNumFormat? Format = null,
+	long? Seconds = null, long? Nanos = null, int? Year = null, int? Month = null, int? Day = null)
 {
 	static readonly JsonSerializerOptions _options = new(JsonSerializerDefaults.Web);
 
 	/// <summary><see langword="true"/> when this vector expects a successful parse.</summary>
 	internal bool ExpectSuccess =>
 		Expect == "ok";
+
+	/// <summary>The <see cref="ParseFailure"/> this vector expects, or <see langword="null"/> when <see cref="Expect"/> is "ok".</summary>
+	internal ParseFailure? ExpectedFailure =>
+		Expect switch
+		{
+			"ok" => null,
+			"empty" => ParseFailure.Empty,
+			"malformed" => ParseFailure.Malformed,
+			"out_of_range" => ParseFailure.OutOfRange,
+			_ => throw new NotSupportedException($"Corpus vector declares unsupported expect '{Expect}'."),
+		};
+
+	internal bool AsBoolean() => ((JsonElement)Value!).GetBoolean();
+	internal string AsGuidHex() => ((JsonElement)Value!).GetString()!;
+	internal long AsSignedInteger() => ((JsonElement)Value!).GetInt64();
+	internal ulong AsUnsignedInteger() => ((JsonElement)Value!).GetUInt64();
+	internal double AsDouble() => ((JsonElement)Value!).GetDouble();
+
+	// Corpus nanos are exact-nanosecond values (up to 9 fractional digits); Svartálfheim's
+	// temporal types are tick-resolution (100ns). Truncate toward zero to the nearest 100ns
+	// before comparing -- matching this plan's established "truncate, never round" doctrine
+	// (DateTimeOffsetParser/TimeOnlyParser/TimeSpanParser all truncate an 8th/9th fractional
+	// digit the same way). C#'s integer division truncates toward zero for both signs, so this
+	// is correct for duration.json's negative nanos values too (e.g. seconds: -1, nanos:
+	// -500000000).
+	internal static long TruncateNanosToTickResolution(long nanos) =>
+		nanos / 100 * 100;
 
 	/// <summary>Loads every corpus vector from <paramref name="fileName"/> under the vendored corpus directory.</summary>
 	/// <param name="fileName">The corpus file's name, e.g. <c>"boolean.json"</c>.</param>

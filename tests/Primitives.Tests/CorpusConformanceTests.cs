@@ -33,6 +33,15 @@ public sealed class CorpusConformanceTests
 	// grammar, not a leniency gap to converge. Left out of this task's corpus coverage entirely
 	// (not merely excluded from one theory) -- see Task 15's report for the full audit.
 
+	// unix.json and excel_serial.json also sit in the corpus directory with no theory in this file:
+	//   - unix.json exercises Unix-epoch-second parsing, which exists on
+	//     DateTimeOffsetParser.ParseUnix/ParseUnixCore but was never audited against this specific
+	//     corpus file in this plan -- a real, separately-tracked gap. Note that ParseUnixCore
+	//     currently treats an out-of-range epoch as Malformed, not OutOfRange, which may itself
+	//     diverge from what this corpus expects.
+	//   - excel_serial.json has no corresponding parser anywhere in this codebase at all.
+	// Neither is wired in this pass.
+
 	// Excluded from BOTH native and managed: vectors declaring a "format" object that neither
 	// engine's real-number door, as built in this task, can express. Both are a genuine shared
 	// capability gap, not a leniency mismatch (same category Task 11 established for IntegerParser):
@@ -210,18 +219,30 @@ public sealed class CorpusConformanceTests
 	{
 		var result = BooleanParser.ParseRequired(vector.Input);
 		if (vector.ExpectSuccess)
-			result.TryGetValue(out Success<bool> _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Success<bool> success).ShouldBeTrue();
+			success.Value.ShouldBe(vector.AsBoolean());
+		}
 		else
-			result.TryGetValue(out Failure _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Failure failure).ShouldBeTrue();
+			failure.Reason.ShouldBe(vector.ExpectedFailure!.Value);
+		}
 	}
 
 	static void AssertGuidMatchesCorpus(CorpusVector vector)
 	{
 		var result = GuidParser.ParseRequired(vector.Input);
 		if (vector.ExpectSuccess)
-			result.TryGetValue(out Success<Guid> _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Success<Guid> success).ShouldBeTrue();
+			success.Value.ToString("N").ShouldBe(vector.AsGuidHex());
+		}
 		else
-			result.TryGetValue(out Failure _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Failure failure).ShouldBeTrue();
+			failure.Reason.ShouldBe(vector.ExpectedFailure!.Value);
+		}
 	}
 
 	// integer.json tags every vector with its target width ("i8".."u64") -- unlike the
@@ -232,41 +253,48 @@ public sealed class CorpusConformanceTests
 		switch (vector.Type)
 		{
 			case "i8":
-				AssertIntegerMatchesCorpus<sbyte>(vector);
+				AssertIntegerMatchesCorpus<sbyte>(vector, unsigned: false);
 				break;
 			case "i16":
-				AssertIntegerMatchesCorpus<short>(vector);
+				AssertIntegerMatchesCorpus<short>(vector, unsigned: false);
 				break;
 			case "i32":
-				AssertIntegerMatchesCorpus<int>(vector);
+				AssertIntegerMatchesCorpus<int>(vector, unsigned: false);
 				break;
 			case "i64":
-				AssertIntegerMatchesCorpus<long>(vector);
+				AssertIntegerMatchesCorpus<long>(vector, unsigned: false);
 				break;
 			case "u8":
-				AssertIntegerMatchesCorpus<byte>(vector);
+				AssertIntegerMatchesCorpus<byte>(vector, unsigned: true);
 				break;
 			case "u16":
-				AssertIntegerMatchesCorpus<ushort>(vector);
+				AssertIntegerMatchesCorpus<ushort>(vector, unsigned: true);
 				break;
 			case "u32":
-				AssertIntegerMatchesCorpus<uint>(vector);
+				AssertIntegerMatchesCorpus<uint>(vector, unsigned: true);
 				break;
 			case "u64":
-				AssertIntegerMatchesCorpus<ulong>(vector);
+				AssertIntegerMatchesCorpus<ulong>(vector, unsigned: true);
 				break;
 			default:
 				throw new NotSupportedException($"Corpus vector declares unsupported integer type '{vector.Type}'.");
 		}
 	}
 
-	static void AssertIntegerMatchesCorpus<T>(CorpusVector vector) where T : IBinaryInteger<T>
+	static void AssertIntegerMatchesCorpus<T>(CorpusVector vector, bool unsigned) where T : IBinaryInteger<T>
 	{
 		var result = IntegerParser.ParseRequired<T>(vector.Input, CultureInfo.InvariantCulture);
 		if (vector.ExpectSuccess)
-			result.TryGetValue(out Success<T> _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Success<T> success).ShouldBeTrue();
+			var expected = unsigned ? T.CreateChecked(vector.AsUnsignedInteger()) : T.CreateChecked(vector.AsSignedInteger());
+			success.Value.ShouldBe(expected);
+		}
 		else
-			result.TryGetValue(out Failure _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Failure failure).ShouldBeTrue();
+			failure.Reason.ShouldBe(vector.ExpectedFailure!.Value);
+		}
 	}
 
 	// real.json tags every vector with its target width ("f32"/"f64") -- unlike the boolean/GUID
@@ -293,44 +321,82 @@ public sealed class CorpusConformanceTests
 		var detectSeparators = vector.Format?.IsSeparatorDetect ?? false;
 		var result = RealParser.ParseRequired<T>(vector.Input, CultureInfo.InvariantCulture, detectSeparators);
 		if (vector.ExpectSuccess)
-			result.TryGetValue(out Success<T> _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Success<T> success).ShouldBeTrue();
+			var expected = vector.AsDouble();
+			var actual = double.CreateChecked(success.Value);
+			var tolerance = Math.Max(Math.Abs(expected) * (typeof(T) == typeof(float) ? 1e-6 : 1e-12), 1e-12);
+			actual.ShouldBe(expected, tolerance);
+		}
 		else
-			result.TryGetValue(out Failure _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Failure failure).ShouldBeTrue();
+			failure.Reason.ShouldBe(vector.ExpectedFailure!.Value);
+		}
 	}
 
 	static void AssertTimestampMatchesCorpus(CorpusVector vector)
 	{
 		var result = DateTimeOffsetParser.ParseRequired(vector.Input);
 		if (vector.ExpectSuccess)
-			result.TryGetValue(out Success<DateTimeOffset> _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Success<DateTimeOffset> success).ShouldBeTrue();
+			var truncatedNanos = CorpusVector.TruncateNanosToTickResolution(vector.Nanos!.Value);
+			var expected = DateTimeOffset.FromUnixTimeSeconds(vector.Seconds!.Value).AddTicks(truncatedNanos / 100);
+			success.Value.ShouldBe(expected);
+		}
 		else
-			result.TryGetValue(out Failure _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Failure failure).ShouldBeTrue();
+			failure.Reason.ShouldBe(vector.ExpectedFailure!.Value);
+		}
 	}
 
 	static void AssertDurationMatchesCorpus(CorpusVector vector)
 	{
 		var result = TimeSpanParser.ParseRequired(vector.Input);
 		if (vector.ExpectSuccess)
-			result.TryGetValue(out Success<TimeSpan> _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Success<TimeSpan> success).ShouldBeTrue();
+			var truncatedNanos = CorpusVector.TruncateNanosToTickResolution(vector.Nanos!.Value);
+			var expected = TimeSpan.FromTicks(vector.Seconds!.Value * TimeSpan.TicksPerSecond + truncatedNanos / 100);
+			success.Value.ShouldBe(expected);
+		}
 		else
-			result.TryGetValue(out Failure _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Failure failure).ShouldBeTrue();
+			failure.Reason.ShouldBe(vector.ExpectedFailure!.Value);
+		}
 	}
 
 	static void AssertDateMatchesCorpus(CorpusVector vector)
 	{
 		var result = DateOnlyParser.ParseRequired(vector.Input);
 		if (vector.ExpectSuccess)
-			result.TryGetValue(out Success<DateOnly> _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Success<DateOnly> success).ShouldBeTrue();
+			success.Value.ShouldBe(new DateOnly(vector.Year!.Value, vector.Month!.Value, vector.Day!.Value));
+		}
 		else
-			result.TryGetValue(out Failure _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Failure failure).ShouldBeTrue();
+			failure.Reason.ShouldBe(vector.ExpectedFailure!.Value);
+		}
 	}
 
 	static void AssertTimeMatchesCorpus(CorpusVector vector)
 	{
 		var result = TimeOnlyParser.ParseRequired(vector.Input);
 		if (vector.ExpectSuccess)
-			result.TryGetValue(out Success<TimeOnly> _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Success<TimeOnly> success).ShouldBeTrue();
+			var truncatedNanos = CorpusVector.TruncateNanosToTickResolution(vector.Nanos!.Value);
+			success.Value.ShouldBe(new TimeOnly(truncatedNanos / 100));
+		}
 		else
-			result.TryGetValue(out Failure _).ShouldBeTrue();
+		{
+			result.TryGetValue(out Failure failure).ShouldBeTrue();
+			failure.Reason.ShouldBe(vector.ExpectedFailure!.Value);
+		}
 	}
 }
