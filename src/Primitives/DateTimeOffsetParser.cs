@@ -201,7 +201,7 @@ public static class DateTimeOffsetParser
 
 		try
 		{
-			return new Success<DateTimeOffset>(new DateTimeOffset(local, TimeSpan.FromMinutes(offsetMinutes)));
+			return new Success<DateTimeOffset>(new DateTimeOffset(local, TimeSpan.FromMinutes(offsetMinutes)).ToUniversalTime());
 		}
 		catch (ArgumentOutOfRangeException)
 		{
