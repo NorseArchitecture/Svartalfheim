@@ -3,12 +3,25 @@ using System.Globalization;
 namespace Norse.Primitives;
 
 /// <summary>
-/// Span-based parser for <see cref="DateTime"/>. Identical ISO profile to
-/// <see cref="DateTimeOffsetParser"/> — mandatory zone, normalized to UTC (<see cref="DateTimeKind.Utc"/>) —
-/// plus a declared-exact door (carrying <see cref="DateTimeStyles.NoCurrentDateDefault"/> so a missing
-/// date component fails loud rather than defaulting to today) and a declared <see cref="ParseUnix"/>
-/// epoch door. The sentinel guard rejects <see cref="DateTime.MinValue"/>/<see cref="DateTime.MaxValue"/>.
+/// Span-based parser for <see cref="DateTime"/>, normalized to UTC (<see cref="DateTimeKind.Utc"/>)
+/// with a mandatory zone on the ISO door, plus a declared-exact door (carrying
+/// <see cref="DateTimeStyles.NoCurrentDateDefault"/> so a missing date component fails loud rather
+/// than defaulting to today) and a declared <see cref="ParseUnix"/> epoch door. The sentinel guard
+/// rejects <see cref="DateTime.MinValue"/>/<see cref="DateTime.MaxValue"/> unconditionally, on
+/// every door.
 /// </summary>
+/// <remarks>
+/// This type's own independent ISO grammar has NOT converged with
+/// <see cref="DateTimeOffsetParser"/>'s post-Task-13 RFC 3339 rewrite, and the two now genuinely
+/// diverge on identical input text — a known, tracked gap, not an oversight. Concretely, this
+/// parser's ISO door: matches against a fixed <c>_isoFormats</c> array (four exact formats) rather
+/// than a hand-rolled RFC 3339 grammar; caps the fractional-second component at seven digits
+/// (<c>FFFFFFF</c>) instead of accepting one to nine digits truncated to ticks; accepts only an
+/// uppercase literal <c>T</c> date/time separator, never lowercase <c>t</c>; and always rejects
+/// both <see cref="DateTime.MinValue"/> and <see cref="DateTime.MaxValue"/> as
+/// <see cref="ParseFailure.Malformed"/>, with no <c>"0000"</c>-year <see cref="ParseFailure.OutOfRange"/>
+/// distinction of the kind <see cref="DateTimeOffsetParser"/> and <see cref="DateOnlyParser"/> draw.
+/// </remarks>
 public static class DateTimeParser
 {
 	const string

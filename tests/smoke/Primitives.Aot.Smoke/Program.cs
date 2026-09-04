@@ -62,6 +62,10 @@ Check("declared unix epoch parses off-gateway", () =>
 Check("TimeZoneParser resolves a known IANA id off-gateway", () =>
 	TimeZoneParser.ParseRequired("America/Chicago").TryGetValue(out Success<TimeZoneInfo> _));
 
+// Also transitively exercises TimeOnlyParser.ParseIso's native Cast.Time branch (via
+// TimeOnlyParser.ParseRequired, called internally by TemporalFusion.Fuse for the "10:00:00"
+// argument below) -- covers Task 15's native call path under AOT publish without a redundant
+// direct check.
 Check("TemporalFusion fuses ISO date, time, and IANA zone to UTC", () =>
 	TemporalFusion.FuseRequired("2026-06-15", "10:00:00", "America/Chicago")
 		.TryGetValue(out Success<DateTime> fused)
@@ -96,6 +100,22 @@ Check("DeterministicGuid derives a stable value from namespace and name", () =>
 		first = new(DeterministicGuid.Namespaces.Dns, "example.com"),
 		second = new(DeterministicGuid.Namespaces.Dns, "example.com");
 	return first == second;
+});
+
+Check("SequentialGuid() publishes clean under AOT", () =>
+{
+	var value = new SequentialGuid();
+	_ = new SequentialGuid(value.Value, GuidByteOrder.Rfc9562); // throws if version/variant bits are wrong
+	return true;
+});
+
+Check("DeterministicGuid publishes clean under AOT", () =>
+	new DeterministicGuid(DeterministicGuid.Namespaces.Dns, "aot-smoke").Value != Guid.Empty);
+
+Check("SQL byte-order round trip publishes clean under AOT", () =>
+{
+	var value = new SequentialGuid();
+	return value.ToSqlOrder().ToRfcOrder().Value == value.Value;
 });
 
 if (failures > 0)

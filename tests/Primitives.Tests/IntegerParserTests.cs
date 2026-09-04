@@ -2,6 +2,10 @@ using System.Globalization;
 
 namespace Norse.Primitives.Tests;
 
+// Runs in NativeCapabilityCollection: the "_on_the_forced_managed_path" theories/facts below call
+// NativeCapability.ForManagedOnly, which mutates thread-local state that must not race another
+// test reading NativeCapability.Available concurrently.
+[Collection(nameof(NativeCapabilityCollection))]
 public sealed class IntegerParserTests
 {
 	const string AllWhitespace = " \t\r\n\f ";
@@ -11,23 +15,38 @@ public sealed class IntegerParserTests
 		_enUs = CultureInfo.GetCultureInfo("en-US"),
 		_deDe = CultureInfo.GetCultureInfo("de-DE");
 
+	public static TheoryData<string, int> RecognizedIntInputs => new()
+	{
+		{ "42", 42 },
+		{ "  7  ", 7 },
+		{ "+13", 13 },
+		{ "-13", -13 },
+		{ "1,234", 1234 },      // thousands, invariant group separator
+		{ "(1,234)", -1234 },   // accounting negative
+		{ "1e3", 1000 },        // integral exponent
+		{ "0x2A", 42 },         // hex prefix
+		{ "&H2A", 42 },         // legacy hex prefix
+		{ "0b1010", 10 },       // binary prefix
+	};
+
 	[Theory]
-	[InlineData("42", 42)]
-	[InlineData("  7  ", 7)]
-	[InlineData("+13", 13)]
-	[InlineData("-13", -13)]
-	[InlineData("1,234", 1234)]      // thousands, invariant group separator
-	[InlineData("(1,234)", -1234)]   // accounting negative
-	[InlineData("1e3", 1000)]        // integral exponent
-	[InlineData("0x2A", 42)]         // hex prefix
-	[InlineData("&H2A", 42)]         // legacy hex prefix
-	[InlineData("0b1010", 10)]       // binary prefix
+	[MemberData(nameof(RecognizedIntInputs))]
 	void Should_parse_value_when_int_input_is_recognized(string input, int expected)
 	{
 		var actual = IntegerParser.ParseRequired<int>(input, _invariant);
 		actual.TryGetValue(out Success<int> success).ShouldBeTrue();
 		success.Value.ShouldBe(expected);
 	}
+
+	[Theory]
+	[MemberData(nameof(RecognizedIntInputs))]
+	void Should_parse_value_when_int_input_is_recognized_on_the_forced_managed_path(string input, int expected) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = IntegerParser.ParseRequired<int>(input, _invariant);
+			actual.TryGetValue(out Success<int> success).ShouldBeTrue();
+			success.Value.ShouldBe(expected);
+		});
 
 	[Fact]
 	void Should_parse_currency_when_provider_declares_the_symbol()
@@ -53,6 +72,15 @@ public sealed class IntegerParserTests
 		actual.TryGetValue(out Success<sbyte> success).ShouldBeTrue();
 		success.Value.ShouldBe((sbyte)-1);
 	}
+
+	[Fact]
+	void Should_read_hex_as_bit_pattern_when_value_overflows_signed_width_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = IntegerParser.ParseRequired<sbyte>("0xFF", _invariant);
+			actual.TryGetValue(out Success<sbyte> success).ShouldBeTrue();
+			success.Value.ShouldBe((sbyte)-1);
+		});
 
 	[Theory]
 	[InlineData("12.5")]     // decimal point never allowed on an integer
@@ -100,6 +128,16 @@ public sealed class IntegerParserTests
 	}
 
 	[Fact]
+	void Should_parse_value_when_optional_input_is_recognized_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = IntegerParser.ParseOptional<int>("0x2A", _invariant);
+			actual.HasValue.ShouldBeTrue();
+			actual.Value.TryGetValue(out Success<int> success).ShouldBeTrue();
+			success.Value.ShouldBe(42);
+		});
+
+	[Fact]
 	void Should_truncate_captured_input_when_malformed_input_is_oversized()
 	{
 		var oversized = $"z{new string('9', Failure.MaxInputLength + 44)}";
@@ -127,6 +165,17 @@ public sealed class IntegerParserTests
 	}
 
 	[Theory]
+	[InlineData("0")]
+	[InlineData("255")]
+	void Should_parse_byte_within_range_on_the_forced_managed_path(string input) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			IntegerParser.ParseRequired<byte>(input, _invariant)
+				.TryGetValue(out Success<byte> success).ShouldBeTrue();
+			success.Value.ShouldBe(byte.Parse(input, CultureInfo.InvariantCulture));
+		});
+
+	[Theory]
 	[InlineData("256")]
 	[InlineData("-1")]
 	void Should_fail_when_byte_is_out_of_range(string input) =>
@@ -151,7 +200,54 @@ public sealed class IntegerParserTests
 	}
 
 	[Fact]
+	void Should_parse_each_integer_width_at_its_documented_maximum_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			IntegerParser.ParseRequired<sbyte>("127", _invariant).TryGetValue(out Success<sbyte> a).ShouldBeTrue();
+			a.Value.ShouldBe(sbyte.MaxValue);
+			IntegerParser.ParseRequired<short>("32767", _invariant).TryGetValue(out Success<short> b).ShouldBeTrue();
+			b.Value.ShouldBe(short.MaxValue);
+			IntegerParser.ParseRequired<ushort>("65535", _invariant).TryGetValue(out Success<ushort> c).ShouldBeTrue();
+			c.Value.ShouldBe(ushort.MaxValue);
+			IntegerParser.ParseRequired<uint>("4294967295", _invariant).TryGetValue(out Success<uint> d).ShouldBeTrue();
+			d.Value.ShouldBe(uint.MaxValue);
+			IntegerParser.ParseRequired<long>("9223372036854775807", _invariant).TryGetValue(out Success<long> e).ShouldBeTrue();
+			e.Value.ShouldBe(long.MaxValue);
+			IntegerParser.ParseRequired<ulong>("18446744073709551615", _invariant).TryGetValue(out Success<ulong> f).ShouldBeTrue();
+			f.Value.ShouldBe(ulong.MaxValue);
+		});
+
+	[Fact]
 	void Should_fail_when_value_overflows_long() =>
 		IntegerParser.ParseRequired<long>("99999999999999999999999", _invariant)
 			.TryGetValue(out Failure _).ShouldBeTrue();
+
+	[Fact]
+	void Should_return_OutOfRange_when_text_is_numerically_well_formed_but_exceeds_the_target_type()
+	{
+		var result = IntegerParser.ParseRequired<byte>("256", CultureInfo.InvariantCulture);
+
+		result.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+	}
+
+	[Fact]
+	void Should_still_return_Malformed_for_genuinely_unrecognizable_text()
+	{
+		var result = IntegerParser.ParseRequired<byte>("not-a-number", CultureInfo.InvariantCulture);
+
+		result.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
+
+	[Fact]
+	void Should_return_Malformed_when_hex_radix_prefix_is_present_but_digits_are_invalid()
+	{
+		// "ZZ" is never valid hex digit text -- distinct from "0x1FF" (well-formed hex, just too
+		// wide for sbyte, which is OutOfRange), this must still collapse to Malformed.
+		var result = IntegerParser.ParseRequired<sbyte>("0xZZ", CultureInfo.InvariantCulture);
+
+		result.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
 }

@@ -37,15 +37,20 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 	/// <summary>Generates a new value from the current time. Always <see cref="GuidByteOrder.Rfc9562"/>.</summary>
 	public SequentialGuid()
 	{
+		Value = NativeCapability.Available ? HyperUuid.UuidGenerator.NewV7() : GenerateManagedV7();
+		Order = GuidByteOrder.Rfc9562;
+		Timestamp = SequentialGuidBytes.ExtractTimestamp(Value, Order);
+	}
+
+	static Guid GenerateManagedV7()
+	{
 		var unixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 		var counter = Interlocked.Increment(ref _counter) & 0x3FFFFFF;
 
 		Span<byte> entropy = stackalloc byte[6];
 		RandomNumberGenerator.Fill(entropy);
 
-		Value = SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, entropy);
-		Order = GuidByteOrder.Rfc9562;
-		Timestamp = SequentialGuidBytes.ExtractTimestamp(Value, Order);
+		return SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, entropy);
 	}
 
 	/// <summary>Wraps an existing value that this platform already produced, tagging it with its known byte order.</summary>
@@ -72,6 +77,7 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 			GuidByteOrder.Unspecified => throw new InvalidOperationException(
 				"default(SequentialGuid) is malformed by construction -- Order is Unspecified. Only wrap a value this platform already produced via the two-arg constructor, or generate a new one with SequentialGuid()."),
 			GuidByteOrder.SqlServer => this,
+			_ when NativeCapability.Available => new(HyperUuid.UuidGenerator.V7ToSqlOrder(Value), GuidByteOrder.SqlServer),
 			_ => new(SequentialGuidBytes.ToSqlOrder(Value), GuidByteOrder.SqlServer)
 		};
 
@@ -83,6 +89,7 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 			GuidByteOrder.Unspecified => throw new InvalidOperationException(
 				"default(SequentialGuid) is malformed by construction -- Order is Unspecified. Only wrap a value this platform already produced via the two-arg constructor, or generate a new one with SequentialGuid()."),
 			GuidByteOrder.Rfc9562 => this,
+			_ when NativeCapability.Available => new(HyperUuid.UuidGenerator.V7FromSqlOrder(Value), GuidByteOrder.Rfc9562),
 			_ => new(SequentialGuidBytes.ToRfcOrder(Value), GuidByteOrder.Rfc9562)
 		};
 
@@ -113,6 +120,13 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 			: Value.CompareTo(normalizedOther.Value);
 	}
 
+	// Bytes, not items -- chosen to keep the per-chunk stackalloc small and safe regardless of
+	// batch size. Drawing entropy per chunk rather than per item turns an N-syscall RNG cost
+	// (measured ~848 ns/item, dominating Fill's total time) into a single draw every
+	// EntropyChunkBytes / 6 items -- the batch is still capped at the 26-bit counter space, but
+	// the entropy buffer never grows past this regardless of how large that batch gets.
+	const int EntropyChunkBytes = 3072;
+
 	/// <summary>
 	/// Fills <paramref name="destination"/> with new values sharing a single current-time capture, each
 	/// claiming a contiguous slot in the process-global counter. All <see cref="GuidByteOrder.Rfc9562"/>.
@@ -126,17 +140,55 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 		if (destination.IsEmpty)
 			return;
 
+		if (NativeCapability.Available)
+		{
+			FillNative(destination);
+			return;
+		}
+
+		FillManaged(destination);
+	}
+
+	// Chunked exactly like FillManaged below, for the same reason: sizing a buffer to the whole
+	// batch scales with the caller's batch size, and at the documented max (67,108,864, the 26-bit
+	// counter space) that's roughly 1 GB in one shot. A single reusable 256-Guid stack buffer,
+	// refilled once per chunk, keeps this bounded regardless of how large destination gets.
+	const int NativeChunkSize = 256;
+
+	static void FillNative(Span<SequentialGuid> destination)
+	{
+		Span<Guid> chunkBuffer = stackalloc Guid[NativeChunkSize];
+		for (var offset = 0; offset < destination.Length; offset += NativeChunkSize)
+		{
+			var chunkCount = Math.Min(NativeChunkSize, destination.Length - offset);
+			var chunk = chunkBuffer[..chunkCount];
+			HyperUuid.UuidGenerator.FillV7(chunk);
+			for (var i = 0; i < chunkCount; i++)
+				destination[offset + i] = new SequentialGuid(chunk[i], GuidByteOrder.Rfc9562);
+		}
+	}
+
+	static void FillManaged(Span<SequentialGuid> destination)
+	{
 		var unixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 		var count = destination.Length;
 		var start = Interlocked.Add(ref _counter, count) - count + 1;
 
-		Span<byte> entropy = stackalloc byte[6];
-		for (var i = 0; i < count; i++)
+		Span<byte> entropyChunk = stackalloc byte[EntropyChunkBytes];
+		var chunkItemCapacity = EntropyChunkBytes / 6;
+
+		for (var offset = 0; offset < count; offset += chunkItemCapacity)
 		{
-			RandomNumberGenerator.Fill(entropy);
-			var counter = (start + i) & 0x3FFFFFF;
-			var value = SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, entropy);
-			destination[i] = new SequentialGuid(value, GuidByteOrder.Rfc9562);
+			var chunkCount = Math.Min(chunkItemCapacity, count - offset);
+			var chunk = entropyChunk[..(chunkCount * 6)];
+			RandomNumberGenerator.Fill(chunk);
+
+			for (var i = 0; i < chunkCount; i++)
+			{
+				var counter = (start + offset + i) & 0x3FFFFFF;
+				var value = SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, chunk.Slice(i * 6, 6));
+				destination[offset + i] = new SequentialGuid(value, GuidByteOrder.Rfc9562);
+			}
 		}
 	}
 

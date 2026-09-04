@@ -1,26 +1,45 @@
 namespace Norse.Primitives.Tests;
 
+// Runs in NativeCapabilityCollection: the "_on_the_forced_managed_path" theories/facts below call
+// NativeCapability.ForManagedOnly, which mutates thread-local state that must not race another
+// test reading NativeCapability.Available concurrently.
+[Collection(nameof(NativeCapabilityCollection))]
 public sealed class GuidParserTests
 {
 	const string Known = "01020304-0506-0708-090a-0b0c0d0e0f10";
 
 	static readonly Guid _expected = new(Known);
 
+	public static TheoryData<string> RecognizedInputs =>
+	[
+		"01020304-0506-0708-090a-0b0c0d0e0f10",              // D
+		"0102030405060708090a0b0c0d0e0f10",                  // N
+		"{01020304-0506-0708-090a-0b0c0d0e0f10}",            // B
+		"(01020304-0506-0708-090a-0b0c0d0e0f10)",            // P
+		"  01020304-0506-0708-090a-0b0c0d0e0f10  ",          // surrounding whitespace
+		"urn:uuid:01020304-0506-0708-090a-0b0c0d0e0f10",     // URN prefix
+		"GUID:01020304-0506-0708-090a-0b0c0d0e0f10",         // GUID: prefix
+		"uuid:01020304-0506-0708-090a-0b0c0d0e0f10",         // case-insensitive UUID:
+	];
+
 	[Theory]
-	[InlineData("01020304-0506-0708-090a-0b0c0d0e0f10")]              // D
-	[InlineData("0102030405060708090a0b0c0d0e0f10")]                  // N
-	[InlineData("{01020304-0506-0708-090a-0b0c0d0e0f10}")]            // B
-	[InlineData("(01020304-0506-0708-090a-0b0c0d0e0f10)")]            // P
-	[InlineData("  01020304-0506-0708-090a-0b0c0d0e0f10  ")]          // surrounding whitespace
-	[InlineData("urn:uuid:01020304-0506-0708-090a-0b0c0d0e0f10")]     // URN prefix
-	[InlineData("GUID:01020304-0506-0708-090a-0b0c0d0e0f10")]         // GUID: prefix
-	[InlineData("uuid:01020304-0506-0708-090a-0b0c0d0e0f10")]         // case-insensitive UUID:
+	[MemberData(nameof(RecognizedInputs))]
 	void Should_parse_value_when_guid_input_is_recognized(string input)
 	{
 		var actual = GuidParser.ParseRequired(input);
 		actual.TryGetValue(out Success<Guid> success).ShouldBeTrue();
 		success.Value.ShouldBe(_expected);
 	}
+
+	[Theory]
+	[MemberData(nameof(RecognizedInputs))]
+	void Should_parse_value_when_guid_input_is_recognized_on_the_forced_managed_path(string input) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = GuidParser.ParseRequired(input);
+			actual.TryGetValue(out Success<Guid> success).ShouldBeTrue();
+			success.Value.ShouldBe(_expected);
+		});
 
 	[Theory]
 	[InlineData("not-a-guid")]
@@ -64,4 +83,14 @@ public sealed class GuidParserTests
 		actual.Value.TryGetValue(out Success<Guid> success).ShouldBeTrue();
 		success.Value.ShouldBe(_expected);
 	}
+
+	[Fact]
+	void Should_parse_value_when_optional_input_is_recognized_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = GuidParser.ParseOptional($"urn:uuid:{Known}");
+			actual.HasValue.ShouldBeTrue();
+			actual.Value.TryGetValue(out Success<Guid> success).ShouldBeTrue();
+			success.Value.ShouldBe(_expected);
+		});
 }

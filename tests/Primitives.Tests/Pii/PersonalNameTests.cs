@@ -64,4 +64,27 @@ public sealed class PersonalNameTests
 		PersonalName malformed = default;
 		Should.Throw<InvalidOperationException>(() => malformed.WireValue);
 	}
+
+	[Fact]
+	void Should_fail_with_malformed_reason_rather_than_throw_when_input_has_an_unpaired_surrogate()
+	{
+		// Regression: an unpaired UTF-16 surrogate (e.g. a name truncated mid-astral-character by
+		// an upstream substring or column-width limit) used to reach string.IsNormalized/Normalize
+		// in Parse, both of which throw ArgumentException on a lone surrogate -- an unhandled
+		// exception in a PII primitive on a trust boundary. HasValidShape now rejects it outright.
+		PersonalName.Parse("A\uD800").TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
+
+	[Fact]
+	void Should_fail_with_malformed_reason_when_input_contains_a_real_surrogate_pair()
+	{
+		// A genuinely valid astral-plane character (U+1F600 GRINNING FACE, a real high/low
+		// surrogate pair) is ALSO rejected by the conservative fix. HasValidShape iterates UTF-16
+		// code units, not full code points, so it can't distinguish a valid pair from a lone unit
+		// without real pair-tracking logic -- this primitive deliberately doesn't support
+		// astral-plane characters (a scope choice, not a bug).
+		PersonalName.Parse("A\U0001F600").TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
 }

@@ -4,10 +4,15 @@ namespace Norse.Primitives;
 
 /// <summary>
 /// Span-based parser for <see cref="DateOnly"/>. The ISO door accepts exactly
-/// <c>yyyy-MM-dd</c> under <see cref="CultureInfo.InvariantCulture"/>; the exact door accepts a
-/// single caller-declared format under a required provider. The sentinel guard rejects
-/// <see cref="DateOnly.MinValue"/> and <see cref="DateOnly.MaxValue"/> — neither ever reflects valid
-/// state. Culture-insensitive on the ISO door (no provider — ISO 8601 is invariant).
+/// <c>yyyy-MM-dd</c> under <see cref="CultureInfo.InvariantCulture"/> — a well-formed but
+/// unrepresentable <c>0000</c> year is <see cref="ParseFailure.OutOfRange"/>, never a bare
+/// <see cref="ParseFailure.Malformed"/> collapse; <see cref="DateOnly.MinValue"/>
+/// (<c>0001-01-01</c>) and <see cref="DateOnly.MaxValue"/> (<c>9999-12-31</c>) are ordinary
+/// successes on this door, matching HyperCast's own corpus (<c>date.json</c>) — see the
+/// 2026-09-03 amendment to the temporal-parsers design spec §9. The exact door accepts a single
+/// caller-declared format under a required provider and still carries the original sentinel
+/// guard (unaudited against HyperCast so far — no corpus file covers it yet). Culture-insensitive
+/// on the ISO door (no provider — ISO 8601 is invariant).
 /// </summary>
 public static class DateOnlyParser
 {
@@ -16,7 +21,7 @@ public static class DateOnlyParser
 		IsoFormat = "yyyy-MM-dd",
 		IsoLabel = "ISO 8601";
 
-	/// <summary>Parses an ISO <c>yyyy-MM-dd</c> date. Empty ⇒ <see cref="ParseFailure.Empty"/>; unrecognized or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
+	/// <summary>Parses an ISO <c>yyyy-MM-dd</c> date. Empty ⇒ <see cref="ParseFailure.Empty"/>; unrecognized ⇒ <see cref="ParseFailure.Malformed"/>; a well-formed but unrepresentable <c>0000</c> year ⇒ <see cref="ParseFailure.OutOfRange"/>.</summary>
 	/// <param name="input">The raw scalar text. A null string converts to the empty span.</param>
 	/// <returns>The parse outcome — never throws on bad input.</returns>
 	public static Result<DateOnly> ParseRequired(ReadOnlySpan<char> input)
@@ -27,7 +32,7 @@ public static class DateOnlyParser
 			ParseIso(trimmed);
 	}
 
-	/// <summary>Parses an optional ISO date. Empty ⇒ absent (<see langword="null"/>); unrecognized or sentinel ⇒ <see cref="ParseFailure.Malformed"/>.</summary>
+	/// <summary>Parses an optional ISO date. Empty ⇒ absent (<see langword="null"/>); unrecognized ⇒ <see cref="ParseFailure.Malformed"/>; a well-formed but unrepresentable <c>0000</c> year ⇒ <see cref="ParseFailure.OutOfRange"/>.</summary>
 	/// <param name="input">The raw scalar text. A null string converts to the empty span.</param>
 	/// <returns><see langword="null"/> when absent; otherwise the parse outcome.</returns>
 	public static Result<DateOnly>? ParseOptional(ReadOnlySpan<char> input)
@@ -74,10 +79,50 @@ public static class DateOnlyParser
 
 	static Result<DateOnly> ParseIso(ReadOnlySpan<char> trimmed)
 	{
-		if (DateOnly.TryParseExact(trimmed, IsoFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) &&
-			!IsSentinel(value))
-			return new Success<DateOnly>(value);
-		return new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
+		if (NativeCapability.Available)
+			return HyperCast.Cast.Date(trimmed) switch
+			{
+				HyperCast.Success<DateOnly> s => new Success<DateOnly>(s.Value),
+				HyperCast.Fault { Reason: HyperCast.CastFailure.OutOfRange } => new Failure(ParseFailure.OutOfRange, trimmed, ExpectedType, IsoLabel),
+				HyperCast.Fault => new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel),
+			};
+
+		return ParseIsoManaged(trimmed);
+	}
+
+	// Hand-rolled ahead of the BCL call for one reason only: DateOnly.TryParseExact fails
+	// year "0000" outright (no year zero in the proleptic Gregorian calendar), collapsing a
+	// well-formed-but-unrepresentable token into the same false as any other garbage. HyperCast's
+	// corpus distinguishes the two (OutOfRange vs Malformed), so the check runs first. Unlike
+	// DateTimeOffsetParser's RFC 3339 rewrite, no other divergence exists here — TryParseExact's
+	// own calendar validation (month 1-12, day-of-month against leap years) already agrees with
+	// the corpus on every other vector, so the exact-format call still does the rest of the work.
+	static Result<DateOnly> ParseIsoManaged(ReadOnlySpan<char> trimmed)
+	{
+		// Structural shape only (fixed length, dashes at the "yyyy-MM-dd" positions, year literally
+		// "0000", month/day spans all ASCII digits) -- this promotes to OutOfRange whenever the
+		// year is "0000" and the month/day characters are digits, regardless of whether those
+		// digits form a calendar-valid month/day. It does NOT perform calendar-range validation:
+		// "0000-99-99" passes this check (both spans are all-digit) and is promoted to OutOfRange
+		// even though 99 is not a valid month or day. A wrong-separator string (e.g. "0000/01/01")
+		// or one with a genuinely non-digit month/day (e.g. "0000-ab-01") fails this structural
+		// check and falls through to TryParseExact below, which is the only authority on whether
+		// month/day values are in calendar range (1-12 / valid day-of-month) for any non-"0000" year.
+		if (trimmed.Length == IsoFormat.Length && trimmed[4] == '-' && trimmed[7] == '-' &&
+			trimmed[..4].SequenceEqual("0000") && AllAsciiDigits(trimmed[5..7]) && AllAsciiDigits(trimmed[8..10]))
+			return new Failure(ParseFailure.OutOfRange, trimmed, ExpectedType, IsoLabel);
+
+		return DateOnly.TryParseExact(trimmed, IsoFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) ?
+			new Success<DateOnly>(value) :
+			new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
+	}
+
+	static bool AllAsciiDigits(ReadOnlySpan<char> digits)
+	{
+		foreach (var c in digits)
+			if (!char.IsAsciiDigit(c))
+				return false;
+		return true;
 	}
 
 	static Result<DateOnly> ParseExact(ReadOnlySpan<char> trimmed, string format, IFormatProvider provider)

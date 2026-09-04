@@ -119,7 +119,10 @@ public sealed class ParserTests
 	[Fact]
 	void Should_truncate_captured_input_when_malformed_input_is_oversized()
 	{
-		string oversized = new('9', Failure.MaxInputLength + 44);
+		// 'x' rather than a digit: IntegerParser now distinguishes a numerically well-formed but
+		// oversized value (OutOfRange, Task 11) from genuinely unrecognizable text (Malformed) --
+		// an oversized run of digits would no longer exercise the Malformed path this test targets.
+		string oversized = new('x', Failure.MaxInputLength + 44);
 		var actual = Parser.ParseRequired<int>(oversized, _invariant);
 		actual.TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);

@@ -77,4 +77,51 @@ public sealed class DeterministicGuidTests
 		Guid unwrapped = value;
 		unwrapped.ShouldBe(value.Value);
 	}
+
+	[Fact]
+	void Native_and_managed_paths_produce_the_identical_value_for_the_same_input()
+	{
+		var namespaceId = DeterministicGuid.Namespaces.Dns;
+		const string Name = "example.com";
+
+		var native = new DeterministicGuid(namespaceId, Name);
+
+		DeterministicGuid managed = default;
+		NativeCapability.ForManagedOnly(() =>
+			managed = new DeterministicGuid(namespaceId, Name));
+
+		native.Value.ShouldBe(managed.Value);
+	}
+
+	[Fact]
+	void Native_and_managed_paths_produce_the_identical_value_for_a_lone_continuation_byte() =>
+		AssertNativeAndManagedAgreeOnInvalidUtf8([0x80]);
+
+	[Fact]
+	void Native_and_managed_paths_produce_the_identical_value_for_an_unpaired_byte_order_mark_sequence() =>
+		AssertNativeAndManagedAgreeOnInvalidUtf8([0xFF, 0xFE, 0x00, 0x01]);
+
+	[Fact]
+	void Native_and_managed_paths_produce_the_identical_value_for_an_invalid_two_byte_sequence() =>
+		AssertNativeAndManagedAgreeOnInvalidUtf8([0xC3, 0x28]);
+
+	// Regression: the byte-span overload's native branch used to route ANY byte input through
+	// Encoding.UTF8.GetString before handing it to HyperUuid -- for bytes that aren't valid UTF-8
+	// (a raw hash, a protobuf payload, an encrypted blob), that round-trip is lossy (invalid
+	// sequences become U+FFFD), producing a DIFFERENT v5 value than the managed path hashes from
+	// the identical raw bytes. The native branch now only applies when the bytes are valid UTF-8;
+	// invalid-UTF-8 input always falls through to the managed hash, on every platform, so the two
+	// paths must agree here regardless of which engine is available.
+	static void AssertNativeAndManagedAgreeOnInvalidUtf8(byte[] name)
+	{
+		var namespaceId = DeterministicGuid.Namespaces.Dns;
+
+		var native = new DeterministicGuid(namespaceId, (ReadOnlySpan<byte>)name);
+
+		DeterministicGuid managed = default;
+		NativeCapability.ForManagedOnly(() =>
+			managed = new DeterministicGuid(namespaceId, (ReadOnlySpan<byte>)name));
+
+		native.Value.ShouldBe(managed.Value);
+	}
 }

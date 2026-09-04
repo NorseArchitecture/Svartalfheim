@@ -75,7 +75,7 @@ public readonly record struct PersonalName : IPiiScalar<PersonalName>
 		var hasLetter = false;
 		foreach (var c in value)
 		{
-			if (char.IsControl(c) || char.IsDigit(c))
+			if (char.IsControl(c) || char.IsDigit(c) || char.IsSurrogate(c))
 				return false;
 			hasLetter |= char.IsLetter(c);
 		}

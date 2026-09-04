@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Unicode;
 
 namespace Norse.Primitives.Identifiers;
 
@@ -47,6 +48,12 @@ public readonly record struct DeterministicGuid : INorseGuid, IComparable<Determ
 	[SkipLocalsInit]
 	public DeterministicGuid(Guid namespaceId, ReadOnlySpan<char> name)
 	{
+		if (NativeCapability.Available)
+		{
+			Value = HyperUuid.UuidGenerator.NewV5(namespaceId, name.ToString());
+			return;
+		}
+
 		var maxByteCount = checked(16 + Encoding.UTF8.GetMaxByteCount(name.Length));
 		Span<byte> stackBuffer = stackalloc byte[StackThreshold];
 		var buffer = maxByteCount <= StackThreshold ? stackBuffer[..maxByteCount] : new byte[maxByteCount];
@@ -56,9 +63,23 @@ public readonly record struct DeterministicGuid : INorseGuid, IComparable<Determ
 	}
 
 	/// <summary>Derives a new value from <paramref name="namespaceId"/> and raw <paramref name="name"/> bytes.</summary>
+	/// <remarks>
+	/// The native path only applies when <paramref name="name"/> is valid UTF-8 -- HyperUuid's API
+	/// only accepts <see cref="string"/>, so routing non-UTF-8 bytes through
+	/// <see cref="Encoding.UTF8"/>'s <c>GetString</c> would lossily replace invalid sequences with
+	/// U+FFFD before hashing, producing a different value than the managed path hashes from the
+	/// identical raw bytes. Non-UTF-8 input always falls through to the managed hash below, on
+	/// every platform, so the result is stable regardless of which engine happens to be available.
+	/// </remarks>
 	[SkipLocalsInit]
 	public DeterministicGuid(Guid namespaceId, ReadOnlySpan<byte> name)
 	{
+		if (NativeCapability.Available && Utf8.IsValid(name))
+		{
+			Value = HyperUuid.UuidGenerator.NewV5(namespaceId, Encoding.UTF8.GetString(name));
+			return;
+		}
+
 		var totalLength = checked(16 + name.Length);
 		Span<byte> stackBuffer = stackalloc byte[StackThreshold];
 		var buffer = totalLength <= StackThreshold ? stackBuffer[..totalLength] : new byte[totalLength];
