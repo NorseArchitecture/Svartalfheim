@@ -294,4 +294,37 @@ public sealed class TimeSpanParserTests
 		TimeSpanParser.ParseRequired(input).TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
 	}
+
+	// Regression: every other ISO unit designator ('W'/'w', 'D'/'d', 'H'/'h', 'S'/'s') accepts
+	// either case; 'M' alone was case-sensitive even though the `when inTime` guard already
+	// disambiguates minutes from months (the `!inTime` months branch is separate) -- case-sensitivity
+	// bought nothing. HyperCast's native engine accepts lowercase 'm' for minutes.
+	[Fact]
+	void Should_parse_lowercase_m_as_minutes_in_the_time_section()
+	{
+		TimeSpanParser.ParseRequired("PT1m").TryGetValue(out Success<TimeSpan> lower).ShouldBeTrue();
+		TimeSpanParser.ParseRequired("PT1M").TryGetValue(out Success<TimeSpan> upper).ShouldBeTrue();
+		lower.Value.ShouldBe(upper.Value);
+		lower.Value.ShouldBe(TimeSpan.FromMinutes(1));
+	}
+
+	[Fact]
+	void Should_parse_lowercase_m_as_minutes_in_the_time_section_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			TimeSpanParser.ParseRequired("PT1m").TryGetValue(out Success<TimeSpan> lower).ShouldBeTrue();
+			lower.Value.ShouldBe(TimeSpan.FromMinutes(1));
+		});
+
+	// The `!inTime` months-rejection path is unaffected by the case-insensitivity fix: lowercase
+	// 'm' outside the time section (before 'T') still falls through to the default/months-rejection
+	// case, same as uppercase 'M' already does there.
+	[Theory]
+	[InlineData("P1m")]
+	[InlineData("P1M")]
+	void Should_still_reject_lowercase_or_uppercase_m_as_months_outside_the_time_section(string input)
+	{
+		TimeSpanParser.ParseRequired(input).TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
 }

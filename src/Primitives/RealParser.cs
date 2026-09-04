@@ -135,14 +135,30 @@ public static class RealParser
 		{
 			return T.TryParse(trimmed, RealStyles, provider, out var value) ?
 				(T.IsFinite(value) ? new Success<T>(value) : NonFiniteFailure<T>(trimmed, trimmed)) :
-				new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
+				ClassifyOverflow<T>(trimmed, trimmed, provider);
 		}
 
 		var body = trimmed[..^1].TrimEnd();
 		return T.TryParse(body, RealStyles, provider, out var percent) ?
 			(T.IsFinite(percent) ? new Success<T>(percent / T.CreateChecked(100)) : NonFiniteFailure<T>(body, trimmed)) :
-			new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
+			ClassifyOverflow<T>(body, trimmed, provider);
 	}
+
+	// decimal has no HyperCast native door, and decimal.TryParse simply returns false on overflow --
+	// no infinity concept the way double/float have, so the IsFinite-based NonFiniteFailure branch
+	// above never fires for decimal. A well-formed-but-too-large decimal literal (decimal.MaxValue+1,
+	// "1e40") must still surface OutOfRange, not a bare Malformed collapse, matching this class's own
+	// documented contract (see the remarks at the top of this file). Probe with double -- a strictly
+	// wider finite range than decimal, under the SAME styles/provider decimal itself used -- to tell
+	// "numerically well-formed, just too large for T" from "not a real number at all." Double/float
+	// never reach this on a TryParse failure (their own overflow-to-infinity is already caught by the
+	// IsFinite branch above, before this point, since T.TryParse succeeds and returns an infinite
+	// value for them rather than failing outright), so this only ever changes decimal's classification.
+	static Failure ClassifyOverflow<T>(ReadOnlySpan<char> body, ReadOnlySpan<char> trimmed, IFormatProvider provider)
+		where T : IFloatingPoint<T> =>
+		typeof(T) == typeof(decimal) && double.TryParse(body, RealStyles, provider, out var probe) && double.IsFinite(probe) ?
+			new Failure(ParseFailure.OutOfRange, trimmed, typeof(T).Name) :
+			new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
 
 	static bool IsInvariant(IFormatProvider provider) =>
 		ReferenceEquals(NumberFormatInfo.GetInstance(provider), NumberFormatInfo.InvariantInfo);

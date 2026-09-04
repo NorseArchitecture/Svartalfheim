@@ -139,6 +139,50 @@ public sealed class RealParserTests
 		failure.ExpectedType.ShouldBe("Decimal");
 	}
 
+	[Fact]
+	void Should_fail_with_out_of_range_reason_when_decimal_overflows()
+	{
+		// Regression: decimal.MaxValue + 1, 29 significant digits -- numerically well-formed (under
+		// the 29-digit DecimalDigitGuard trip point) but its magnitude exceeds decimal's finite
+		// range. decimal.TryParse simply returns false on overflow (no infinity concept the way
+		// double/float have), so this used to collapse to a bare Malformed instead of the class's
+		// own documented OutOfRange contract.
+		var actual = RealParser.ParseRequired<decimal>("79228162514264337593543950336", _invariant);
+		actual.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+		failure.ExpectedType.ShouldBe("Decimal");
+	}
+
+	[Fact]
+	void Should_fail_with_out_of_range_reason_when_decimal_overflows_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = RealParser.ParseRequired<decimal>("79228162514264337593543950336", _invariant);
+			actual.TryGetValue(out Failure failure).ShouldBeTrue();
+			failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+		});
+
+	[Fact]
+	void Should_fail_with_malformed_reason_when_decimal_input_is_not_numeric()
+	{
+		// A genuinely non-numeric token stays Malformed -- ClassifyOverflow's double-probe also
+		// fails to parse it, so it falls through to the Malformed branch, not OutOfRange.
+		var actual = RealParser.ParseRequired<decimal>("not-a-number", _invariant);
+		actual.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
+
+	[Fact]
+	void Should_fail_with_out_of_range_reason_when_decimal_percentage_overflows()
+	{
+		// The percent branch (trailing '%') funnels through the same ClassifyOverflow helper. The
+		// body alone (decimal.MaxValue + 1, still 29 digit characters -- under the digit guard's
+		// own trip point) overflows decimal.TryParse regardless of the eventual /100 division.
+		var actual = RealParser.ParseRequired<decimal>("79228162514264337593543950336%", _invariant);
+		actual.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+	}
+
 	[Theory]
 	[InlineData("abc")]
 	[InlineData("1.2.3")]

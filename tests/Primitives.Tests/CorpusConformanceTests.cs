@@ -344,6 +344,11 @@ public sealed class CorpusConformanceTests
 			var truncatedNanos = CorpusVector.TruncateNanosToTickResolution(vector.Nanos!.Value);
 			var expected = DateTimeOffset.FromUnixTimeSeconds(vector.Seconds!.Value).AddTicks(truncatedNanos / 100);
 			success.Value.ShouldBe(expected);
+			// DateTimeOffset equality (ShouldBe) compares instants only, ignoring Offset -- this
+			// assertion is blind to a value that lands on the right instant but the wrong (non-UTC)
+			// Offset. Exactly the gap that let the DateTimeOffsetParser UTC-normalization bug go
+			// undetected by the corpus harness; every parser in this door normalizes to UTC.
+			success.Value.Offset.ShouldBe(TimeSpan.Zero);
 		}
 		else
 		{

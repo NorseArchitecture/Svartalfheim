@@ -6,7 +6,8 @@ namespace Norse.Primitives;
 /// Span-based parser for <see cref="DateTimeOffset"/>. The ISO door accepts the RFC 3339 grammar
 /// <c>yyyy-MM-ddTHH:mm:ss[.f{1..9}](Z|±hh:mm)</c> — the date/time separator may be <c>T</c> or
 /// <c>t</c>, the zone a literal <c>Z</c>/<c>z</c> or a numeric <c>±hh:mm</c> offset (colon
-/// required; magnitude capped at 14 hours, matching <see cref="DateTimeOffset"/>'s own ceiling) —
+/// required; magnitude capped at ±23:59, RFC 3339's real ceiling — wider than
+/// <see cref="DateTimeOffset"/>'s own ±14:00 struct-construction limit) —
 /// normalized to UTC. A zone-less or space-separated form, a missing-seconds or missing-colon
 /// offset, or a tenth-or-later fractional digit is <see cref="ParseFailure.Malformed"/> (the
 /// eighth and ninth fractional digits truncate to ticks rather than round, matching HyperCast's
@@ -38,9 +39,10 @@ public static class DateTimeOffsetParser
 	// compile-time constant.
 	const int LocalLength = 19;
 
-	// DateTimeOffset's own offset ceiling (TimeSpan.FromHours(14)), in minutes so TryParseZone
-	// never needs to construct a TimeSpan just to compare magnitudes.
-	const int MaxOffsetMinutes = 14 * 60;
+	// RFC 3339's real offset ceiling (+/-23:59), not DateTimeOffset's own +/-14:00
+	// struct-construction limit -- in minutes so TryParseZone never needs to construct a TimeSpan
+	// just to compare magnitudes.
+	const int MaxOffsetMinutes = 23 * 60 + 59;
 
 	const DateTimeStyles
 		IsoStyles = DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
@@ -199,24 +201,25 @@ public static class DateTimeOffsetParser
 		if (fractionTicks > 0)
 			local = local.AddTicks(fractionTicks);
 
-		try
-		{
-			return new Success<DateTimeOffset>(new DateTimeOffset(local, TimeSpan.FromMinutes(offsetMinutes)).ToUniversalTime());
-		}
-		catch (ArgumentOutOfRangeException)
-		{
-			// The offset magnitude was already bounded to +/-14:00 in TryParseZone -- the only
-			// way the constructor still rejects this is a UTC-equivalent past 0001-01-01 or
-			// 9999-12-31.
+		// Compute the UTC instant directly via tick arithmetic rather than constructing an
+		// offset-bearing DateTimeOffset first -- that constructor enforces its OWN +/-14:00 ceiling on
+		// the offset component, which would wrongly reject a legal RFC 3339 offset like "-15:00" even
+		// though the resulting UTC instant is perfectly representable. Range-checking the raw UTC ticks
+		// directly, before ever constructing a DateTimeOffset, sidesteps that unrelated limit entirely.
+		var utcTicks = local.Ticks - (long)offsetMinutes * TimeSpan.TicksPerMinute;
+		if (utcTicks < DateTime.MinValue.Ticks || utcTicks > DateTime.MaxValue.Ticks)
 			return new Failure(ParseFailure.OutOfRange, trimmed, ExpectedType, IsoLabel);
-		}
+
+		return new Success<DateTimeOffset>(new DateTimeOffset(new DateTime(utcTicks, DateTimeKind.Utc), TimeSpan.Zero));
 	}
 
 	// Recognizes "Z"/"z" (zero offset) or a "+hh:mm"/"-hh:mm" numeric offset -- colon required, so
 	// a missing-colon form like "+0500" is rejected here rather than left for
-	// DateTimeOffset.TryParse to accept leniently. Magnitude is capped at DateTimeOffset's own
-	// +/-14:00 ceiling, so an out-of-magnitude offset (e.g. "+24:00") reads as Malformed grammar,
-	// never an OutOfRange instant.
+	// DateTimeOffset.TryParse to accept leniently. Magnitude is capped at RFC 3339's real +/-23:59
+	// ceiling (not DateTimeOffset's own narrower +/-14:00 struct-construction limit -- that limit is
+	// sidestepped entirely by computing the UTC instant via tick arithmetic in ParseIsoManaged), so
+	// an out-of-magnitude offset (e.g. "+24:00") reads as Malformed grammar, never an OutOfRange
+	// instant.
 	static bool TryParseZone(ReadOnlySpan<char> rest, out int offsetMinutes)
 	{
 		if (rest.Length == 1 && rest[0] is 'Z' or 'z')

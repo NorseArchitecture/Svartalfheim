@@ -184,4 +184,46 @@ public sealed class DateTimeOffsetParserTests
 	[Fact]
 	void Should_return_absent_when_optional_unix_input_is_absent() =>
 		DateTimeOffsetParser.ParseUnixOptional("   ", UnixPrecision.Seconds).HasValue.ShouldBeFalse();
+
+	// Regression: the managed ISO door used to cap offset magnitude at DateTimeOffset's own
+	// +/-14:00 struct-construction ceiling instead of RFC 3339's real +/-23:59. Forced managed,
+	// since this specifically fixes the managed path (native already accepted these).
+	[Theory]
+	[InlineData("2026-01-02T15:04:05-15:00", 6, 4, 5)]   // beyond DateTimeOffset's own +/-14:00 ceiling, legal RFC 3339
+	[InlineData("2026-01-02T15:04:05+23:59", 15, 5, 5)]  // RFC 3339's real ceiling, positive
+	[InlineData("2026-01-02T15:04:05-23:59", 15, 3, 5)]  // RFC 3339's real ceiling, negative
+	void Should_parse_offsets_beyond_fourteen_hours_up_to_the_rfc3339_ceiling_on_the_forced_managed_path(
+		string input, int expectedHour, int expectedMinute, int expectedSecond) =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = DateTimeOffsetParser.ParseRequired(input);
+			actual.TryGetValue(out Success<DateTimeOffset> success).ShouldBeTrue();
+			success.Value.Offset.ShouldBe(TimeSpan.Zero);
+			success.Value.Hour.ShouldBe(expectedHour);
+			success.Value.Minute.ShouldBe(expectedMinute);
+			success.Value.Second.ShouldBe(expectedSecond);
+		});
+
+	// 24:00 = 1440 minutes, past the new 1439-minute (+/-23:59) ceiling -- still a grammar
+	// violation, not a magnitude that happens to be representable.
+	[Fact]
+	void Should_fail_with_malformed_reason_when_offset_exceeds_the_rfc3339_ceiling_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = DateTimeOffsetParser.ParseRequired("2026-01-02T15:04:05+24:00");
+			actual.TryGetValue(out Failure failure).ShouldBeTrue();
+			failure.Reason.ShouldBe(ParseFailure.Malformed);
+		});
+
+	// A large positive offset on an already-MinValue-adjacent local date/time pushes the
+	// UTC-equivalent before 0001-01-01 -- OutOfRange, not a thrown exception (the tick-arithmetic
+	// rewrite range-checks explicitly instead of relying on a DateTimeOffset constructor to throw).
+	[Fact]
+	void Should_fail_with_out_of_range_reason_when_a_wide_offset_pushes_the_utc_equivalent_before_minvalue_on_the_forced_managed_path() =>
+		NativeCapability.ForManagedOnly(() =>
+		{
+			var actual = DateTimeOffsetParser.ParseRequired("0001-01-01T00:00:00+15:00");
+			actual.TryGetValue(out Failure failure).ShouldBeTrue();
+			failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+		});
 }

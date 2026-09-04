@@ -221,7 +221,7 @@ public static class TimeSpanParser
 					ticks += hours * TimeSpan.TicksPerHour;
 					sawTimeComponent = true;
 					break;
-				case 'M' when inTime:
+				case 'M' or 'm' when inTime:
 					if (hasFraction || !Int128.TryParse(whole, NumberStyles.None, CultureInfo.InvariantCulture, out var minutes))
 						return DurationOutcome.Malformed;
 					ticks += minutes * TimeSpan.TicksPerMinute;
