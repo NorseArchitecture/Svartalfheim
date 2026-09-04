@@ -69,6 +69,20 @@ public sealed class DateOnlyParserTests
 	}
 
 	[Fact]
+	void Should_reject_a_leading_zero_year_with_a_non_digit_month_as_malformed()
+	{
+		// "0000-ab-01" has the right shape (length, dashes at the yyyy-MM-dd positions, literal
+		// "0000" year) but the month span is not actually digits -- a naive "starts with 0000,
+		// dashes in the right place" check would wrongly promote this to OutOfRange; only a
+		// genuinely well-formed "0000-MM-dd" token (month/day both ASCII digits) earns that
+		// verdict. Confirmed against HyperCast.Cast.Date directly: real native behavior for this
+		// exact input is Fault(Malformed @ 5+2), matching the managed door's own reasoning.
+		var actual = DateOnlyParser.ParseRequired("0000-ab-01");
+		actual.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.Malformed);
+	}
+
+	[Fact]
 	void Should_honor_declared_format_and_provider_on_the_exact_door()
 	{
 		DateOnlyParser.ParseExactRequired("1/2/2026", "M/d/yyyy", _enUs)

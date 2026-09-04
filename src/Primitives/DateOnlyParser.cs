@@ -99,16 +99,27 @@ public static class DateOnlyParser
 	// the corpus on every other vector, so the exact-format call still does the rest of the work.
 	static Result<DateOnly> ParseIsoManaged(ReadOnlySpan<char> trimmed)
 	{
-		// Structural shape first (fixed length, dashes at the "yyyy-MM-dd" positions) -- only a
-		// genuinely well-formed "0000-MM-dd" token gets the OutOfRange verdict; a wrong-separator
-		// or otherwise garbled string with a leading "0000" (e.g. "0000/01/01") stays Malformed.
+		// Structural shape first (fixed length, dashes at the "yyyy-MM-dd" positions, month/day
+		// spans all ASCII digits) -- only a genuinely well-formed "0000-MM-dd" token gets the
+		// OutOfRange verdict; a wrong-separator string (e.g. "0000/01/01") or one with a non-digit
+		// or otherwise invalid month/day (e.g. "0000-ab-01", "0000-99-99") stays Malformed --
+		// TryParseExact below is still the authority on whether the month/day values themselves
+		// are in range (1-12 / valid day-of-month).
 		if (trimmed.Length == IsoFormat.Length && trimmed[4] == '-' && trimmed[7] == '-' &&
-			trimmed[..4].SequenceEqual("0000"))
+			trimmed[..4].SequenceEqual("0000") && AllAsciiDigits(trimmed[5..7]) && AllAsciiDigits(trimmed[8..10]))
 			return new Failure(ParseFailure.OutOfRange, trimmed, ExpectedType, IsoLabel);
 
 		return DateOnly.TryParseExact(trimmed, IsoFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) ?
 			new Success<DateOnly>(value) :
 			new Failure(ParseFailure.Malformed, trimmed, ExpectedType, IsoLabel);
+	}
+
+	static bool AllAsciiDigits(ReadOnlySpan<char> digits)
+	{
+		foreach (var c in digits)
+			if (!char.IsAsciiDigit(c))
+				return false;
+		return true;
 	}
 
 	static Result<DateOnly> ParseExact(ReadOnlySpan<char> trimmed, string format, IFormatProvider provider)
