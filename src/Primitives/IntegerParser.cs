@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 
@@ -79,8 +78,8 @@ public static class IntegerParser
 		if (NativeCapability.Available && IsInvariant(provider) && TryParseNative<T>(trimmed, out var nativeResult))
 			return nativeResult;
 
-		if (TryRadix<T>(trimmed, out var radix))
-			return new Success<T>(radix);
+		if (TryRadix<T>(trimmed) is { } radixResult)
+			return radixResult;
 		if (T.TryParse(trimmed, DecimalStyles, provider, out var value))
 			return new Success<T>(value);
 
@@ -148,14 +147,51 @@ public static class IntegerParser
 			new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
 	}
 
-	static bool TryRadix<T>(ReadOnlySpan<char> trimmed, [MaybeNullWhen(false)] out T value) where T : notnull, IBinaryInteger<T>
+	// Recognizes a caller-declared 0x/&H (hex) or 0b (binary) radix prefix and parses the remaining
+	// digits as T's own two's-complement bit pattern (so 0xFF is -1 for sbyte, matching this door's
+	// documented "hex is a bit pattern, not a signed magnitude" contract). Returns null when no
+	// recognized prefix is present at all -- the caller falls through to the decimal/currency path.
+	// When a prefix IS present but T.TryParse fails, the digit text is checked against BigInteger
+	// under the same NumberStyles -- with a leading zero digit prepended, to force BigInteger's own
+	// two's-complement HexNumber/BinaryNumber parsing to read the digits as a plain non-negative
+	// magnitude rather than sign-extend them -- to distinguish a genuinely well-formed radix literal
+	// that's simply too wide for T (OutOfRange) from digit text that isn't valid in the declared
+	// radix at all (Malformed). Mirrors the decimal path's own BigInteger-based
+	// OutOfRange-vs-Malformed distinction just above this method's call site.
+	static Result<T>? TryRadix<T>(ReadOnlySpan<char> trimmed) where T : notnull, IBinaryInteger<T>
 	{
+		NumberStyles style;
+		ReadOnlySpan<char> digits;
 		if (trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ||
 			trimmed.StartsWith("&H", StringComparison.OrdinalIgnoreCase))
-			return T.TryParse(trimmed[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value);
-		if (trimmed.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
-			return T.TryParse(trimmed[2..], NumberStyles.BinaryNumber, CultureInfo.InvariantCulture, out value);
-		value = T.Zero;
-		return false;
+		{
+			style = NumberStyles.HexNumber;
+			digits = trimmed[2..];
+		}
+		else if (trimmed.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
+		{
+			style = NumberStyles.BinaryNumber;
+			digits = trimmed[2..];
+		}
+		else
+		{
+			return null;
+		}
+
+		if (T.TryParse(digits, style, CultureInfo.InvariantCulture, out var value))
+			return new Success<T>(value);
+
+		// No digits at all ("0x" alone) is genuinely malformed, not a magnitude overflow -- skip
+		// the BigInteger check, which would otherwise accept a bare prepended "0" as a well-formed
+		// (zero) magnitude and misreport this as OutOfRange.
+		if (digits.IsEmpty)
+			return new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
+
+		Span<char> magnitude = stackalloc char[digits.Length + 1];
+		magnitude[0] = '0';
+		digits.CopyTo(magnitude[1..]);
+		return BigInteger.TryParse(magnitude, style, CultureInfo.InvariantCulture, out _) ?
+			new Failure(ParseFailure.OutOfRange, trimmed, typeof(T).Name) :
+			new Failure(ParseFailure.Malformed, trimmed, typeof(T).Name);
 	}
 }
