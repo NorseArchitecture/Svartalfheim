@@ -1,10 +1,11 @@
 namespace Norse.Primitives.Benchmarks;
 
-// Success-path allocation sweep for the parsers landed in the numeric/char/Guid and temporal
-// increments. The contract under test is the Allocated column: Result<T> is the inline
-// zero-boxing union, so every value-returning door must read 0 B. The lone failure probe pins
-// the opposite — the Failure span ctor bounds to MaxInputLength and then allocates a string, so
-// the Malformed path is honestly non-zero by design (truncation knowledge lives in Failure).
+// Success-path allocation sweep over every engine door the gateway routes. The contract under test
+// is the Allocated column: Result<T> is the inline zero-boxing union and the engine crossing hands
+// back a Verdict<T> by value, so every value-returning door must read 0 B. The two failure probes
+// pin the opposite — the Failure span ctor bounds to MaxInputLength and then allocates a string, so
+// the Malformed and OutOfRange paths are honestly non-zero by design (truncation knowledge lives in
+// Failure).
 [MemoryDiagnoser]
 public class ParserAllocationBenchmarks
 {
@@ -12,101 +13,64 @@ public class ParserAllocationBenchmarks
 	const string DecimalInput = "1234.5678";
 	const string GuidInput = "d9b2d63d-a233-4123-847b-9c8d3e9f1a2b";
 	const string CharInput = "U+0041";
-
 	const string DateOnlyIsoInput = "2026-06-17";
-	const string DateOnlyExactInput = "06/17/2026";
-	const string DateOnlyExactFormat = "MM/dd/yyyy";
-
 	const string TimeOnlyIsoInput = "13:45:30";
-	const string TimeOnlyExactInput = "3:45:30 PM";
-	const string TimeOnlyExactFormat = "h:mm:ss tt";
-
 	const string DateTimeIsoInput = "2026-06-17T12:30:00Z";
 	const string DateTimeOffsetIsoInput = "2026-06-17T12:30:00+00:00";
-	const string DateTimeExactInput = "2026-06-17 12:30:00";
-	const string DateTimeExactFormat = "yyyy-MM-dd HH:mm:ss";
-	const string UnixSecondsInput = "1750000000";
-
 	const string TimeSpanColonInput = "1.02:03:04";
 	const string TimeSpanIsoInput = "P3DT4H30M";
-	const string TimeSpanExactInput = "1.02:03:04";
-	const string TimeSpanExactFormat = "c";
-
 	const string MalformedInput = "not-a-number";
+	const string OutOfRangeInput = "256";
 
 	static readonly IFormatProvider _invariant = CultureInfo.InvariantCulture;
 
 	[Benchmark]
 	public Result<int> WholeNumber() =>
-		IntegerParser.ParseRequired<int>(IntInput, _invariant);
+		Parser.ParseRequired<int>(IntInput, _invariant);
 
 	[Benchmark]
 	public Result<decimal> Real() =>
-		RealParser.ParseRequired<decimal>(DecimalInput, _invariant);
+		Parser.ParseRequired<decimal>(DecimalInput, _invariant);
 
 	[Benchmark]
 	public Result<Guid> Uuid() =>
-		GuidParser.ParseRequired(GuidInput);
+		Parser.ParseRequired<Guid>(GuidInput, _invariant);
 
 	[Benchmark]
 	public Result<char> CodePoint() =>
-		CharParser.ParseRequired(CharInput);
+		Parser.ParseRequired<char>(CharInput, _invariant);
 
 	[Benchmark]
 	public Result<DateOnly> DateOnlyIso() =>
-		DateOnlyParser.ParseRequired(DateOnlyIsoInput);
-
-	[Benchmark]
-	public Result<DateOnly> DateOnlyExact() =>
-		DateOnlyParser.ParseExactRequired(DateOnlyExactInput, DateOnlyExactFormat, _invariant);
+		Parser.ParseRequired<DateOnly>(DateOnlyIsoInput, _invariant);
 
 	[Benchmark]
 	public Result<TimeOnly> TimeOnlyIso() =>
-		TimeOnlyParser.ParseRequired(TimeOnlyIsoInput);
-
-	[Benchmark]
-	public Result<TimeOnly> TimeOnlyExact() =>
-		TimeOnlyParser.ParseExactRequired(TimeOnlyExactInput, TimeOnlyExactFormat, _invariant);
+		Parser.ParseRequired<TimeOnly>(TimeOnlyIsoInput, _invariant);
 
 	[Benchmark]
 	public Result<DateTime> DateTimeIso() =>
-		DateTimeParser.ParseRequired(DateTimeIsoInput);
-
-	[Benchmark]
-	public Result<DateTime> DateTimeExact() =>
-		DateTimeParser.ParseExactRequired(DateTimeExactInput, DateTimeExactFormat, _invariant);
-
-	[Benchmark]
-	public Result<DateTime> DateTimeUnix() =>
-		DateTimeParser.ParseUnix(UnixSecondsInput, UnixPrecision.Seconds);
+		Parser.ParseRequired<DateTime>(DateTimeIsoInput, _invariant);
 
 	[Benchmark]
 	public Result<DateTimeOffset> DateTimeOffsetIso() =>
-		DateTimeOffsetParser.ParseRequired(DateTimeOffsetIsoInput);
-
-	[Benchmark]
-	public Result<DateTimeOffset> DateTimeOffsetExact() =>
-		DateTimeOffsetParser.ParseExactRequired(DateTimeExactInput, DateTimeExactFormat, _invariant);
-
-	[Benchmark]
-	public Result<DateTimeOffset> DateTimeOffsetUnix() =>
-		DateTimeOffsetParser.ParseUnix(UnixSecondsInput, UnixPrecision.Seconds);
+		Parser.ParseRequired<DateTimeOffset>(DateTimeOffsetIsoInput, _invariant);
 
 	[Benchmark]
 	public Result<TimeSpan> TimeSpanColon() =>
-		TimeSpanParser.ParseRequired(TimeSpanColonInput);
+		Parser.ParseRequired<TimeSpan>(TimeSpanColonInput, _invariant);
 
 	[Benchmark]
 	public Result<TimeSpan> TimeSpanIso() =>
-		TimeSpanParser.ParseRequired(TimeSpanIsoInput);
+		Parser.ParseRequired<TimeSpan>(TimeSpanIsoInput, _invariant);
 
-	[Benchmark]
-	public Result<TimeSpan> TimeSpanExact() =>
-		TimeSpanParser.ParseExactRequired(TimeSpanExactInput, TimeSpanExactFormat, _invariant);
-
-	// Failure probe: the Malformed span ctor truncates and allocates — expected non-zero, the
-	// reference point that proves the 0 B success rows above are real and not a dead benchmark.
+	// Failure probes: the Malformed and OutOfRange span ctors truncate and allocate — expected
+	// non-zero, the reference points that prove the 0 B success rows above are real.
 	[Benchmark]
 	public Result<int> MalformedAllocates() =>
-		IntegerParser.ParseRequired<int>(MalformedInput, _invariant);
+		Parser.ParseRequired<int>(MalformedInput, _invariant);
+
+	[Benchmark]
+	public Result<byte> OutOfRangeAllocates() =>
+		Parser.ParseRequired<byte>(OutOfRangeInput, _invariant);
 }

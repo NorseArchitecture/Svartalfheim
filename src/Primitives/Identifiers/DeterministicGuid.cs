@@ -1,7 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Text;
+using HyperUuid;
 
 namespace Norse.Primitives.Identifiers;
 
@@ -13,14 +11,14 @@ namespace Norse.Primitives.Identifiers;
 /// <remarks>
 /// Exists so a lookup/reference-table foreign key can be computed in memory from a namespace + natural
 /// key, without a database round trip. No <c>Timestamp</c>, no byte-order concept — a content hash has
-/// no time component and no meaningful sort order.
+/// no time component and no meaningful sort order. The derivation is HyperUuid's
+/// <see cref="UuidGenerator.NewV5(Guid, ReadOnlySpan{byte})"/>, pinned upstream against the RFC 9562
+/// appendix vectors (<c>corpus/v5.json</c>); this type is the forge's contract over it.
 /// </remarks>
 [SuppressMessage("Design", "CA1036:Override methods on comparable types",
 	Justification = "Deliberately narrow public surface (design doc §3.1): CompareTo covers in-memory sorting and EF-key comparisons; operator sugar is deferred until a concrete caller needs it.")]
 public readonly record struct DeterministicGuid : INorseGuid, IComparable<DeterministicGuid>
 {
-	const int StackThreshold = 256;
-
 	/// <summary>RFC 9562 §6.6 well-known namespace UUIDs.</summary>
 	public static class Namespaces
 	{
@@ -41,57 +39,25 @@ public readonly record struct DeterministicGuid : INorseGuid, IComparable<Determ
 	public Guid Value { get; }
 
 	/// <summary>Derives a new value from <paramref name="namespaceId"/> and <paramref name="name"/>.</summary>
-	public DeterministicGuid(Guid namespaceId, string name) : this(namespaceId, name.AsSpan()) { }
+	public DeterministicGuid(Guid namespaceId, string name) =>
+		Value = UuidGenerator.NewV5(namespaceId, name);
 
 	/// <summary>Derives a new value from <paramref name="namespaceId"/> and <paramref name="name"/>.</summary>
-	[SkipLocalsInit]
-	public DeterministicGuid(Guid namespaceId, ReadOnlySpan<char> name)
-	{
-		var maxByteCount = checked(16 + Encoding.UTF8.GetMaxByteCount(name.Length));
-		Span<byte> stackBuffer = stackalloc byte[StackThreshold];
-		var buffer = maxByteCount <= StackThreshold ? stackBuffer[..maxByteCount] : new byte[maxByteCount];
-		WriteNamespace(namespaceId, buffer);
-		var nameByteLength = Encoding.UTF8.GetBytes(name, buffer[16..]);
-		Value = HashAndFinalize(buffer[..(16 + nameByteLength)]);
-	}
+	public DeterministicGuid(Guid namespaceId, ReadOnlySpan<char> name) =>
+		Value = UuidGenerator.NewV5(namespaceId, name);
 
 	/// <summary>Derives a new value from <paramref name="namespaceId"/> and raw <paramref name="name"/> bytes.</summary>
-	[SkipLocalsInit]
-	public DeterministicGuid(Guid namespaceId, ReadOnlySpan<byte> name)
-	{
-		var totalLength = checked(16 + name.Length);
-		Span<byte> stackBuffer = stackalloc byte[StackThreshold];
-		var buffer = totalLength <= StackThreshold ? stackBuffer[..totalLength] : new byte[totalLength];
-		WriteNamespace(namespaceId, buffer);
-		name.CopyTo(buffer[16..]);
-		Value = HashAndFinalize(buffer);
-	}
+	public DeterministicGuid(Guid namespaceId, ReadOnlySpan<byte> name) =>
+		Value = UuidGenerator.NewV5(namespaceId, name);
 
 	/// <summary>Wraps an already-computed value.</summary>
 	/// <exception cref="ArgumentException"><paramref name="value"/> is not a version 5 UUID with RFC 9562 variant bits.</exception>
 	public DeterministicGuid(Guid value)
 	{
-		if (!GuidVersionBits.HasVersionAndVariant(value, 5))
+		if (!UuidGenerator.IsRfc(value, 5))
 			throw new ArgumentException("Value must be a version 5 UUID with RFC 9562 variant bits.", nameof(value));
 
 		Value = value;
-	}
-
-	static void WriteNamespace(Guid namespaceId, Span<byte> destination) =>
-		namespaceId.TryWriteBytes(destination[..16], bigEndian: true, out _);
-
-	[SuppressMessage("Security", "CA5350:Do Not Use Weak Cryptographic Algorithms",
-		Justification = "RFC 9562 §A.4 mandates SHA-1 for UUIDv5 name-based identifiers; this is a specification requirement, not a security primitive.")]
-	static Guid HashAndFinalize(ReadOnlySpan<byte> input)
-	{
-		Span<byte> digest = stackalloc byte[20];
-		SHA1.HashData(input, digest);
-
-		var head = digest[..16];
-		head[6] = (byte)((head[6] & 0x0F) | (5 << 4));
-		head[8] = (byte)((head[8] & 0x3F) | 0x80);
-
-		return new Guid(head, bigEndian: true);
 	}
 
 	/// <summary>Implicitly unwraps to the underlying <see cref="Guid"/> (storage/wire representation).</summary>

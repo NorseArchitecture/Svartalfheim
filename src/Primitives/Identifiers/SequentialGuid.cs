@@ -1,6 +1,6 @@
 using System.Data.SqlTypes;
 using System.Diagnostics.CodeAnalysis;
-using System.Security.Cryptography;
+using HyperUuid;
 
 namespace Norse.Primitives.Identifiers;
 
@@ -10,11 +10,15 @@ namespace Norse.Primitives.Identifiers;
 /// SQL Server's <c>uniqueidentifier</c> comparison when a transactional table needs it.
 /// </summary>
 /// <remarks>
-/// See <see cref="SequentialGuidBytes"/> for the byte-level layout and the SQL Server shuffle contract.
+/// The engine is HyperUuid's <see cref="UuidGenerator"/>: generation, the SQL Server permutation (pinned
+/// byte for byte by HyperUuid's <c>corpus/sql_order.json</c>, which was generated from this realm's own
+/// retired arithmetic), timestamp extraction, and version/variant inspection — all layout-aware, so a
+/// SQL-ordered value is inspected in place. This type is the forge's contract over that engine:
+/// <see cref="GuidByteOrder"/> is <c>UuidLayout</c> by number.
 /// The public surface is deliberately narrow: no <see cref="object.ToString"/> override, no parsing, no
 /// comparison operators (see the design doc's trust-boundary rationale, §3.1) — <see cref="CompareTo"/>
 /// covers in-memory sorting and dictionary/EF-key use without widening the surface further. Untrusted
-/// input always goes through <see cref="GuidParser"/>'s <see cref="Result{T}"/> gateway, never through
+/// input always goes through the <see cref="Parser"/> gateway's <see cref="Result{T}"/>, never through
 /// this type directly — the only supported construction paths are "generate a new one" and "wrap a
 /// <see cref="Guid"/> this platform already produced."
 /// </remarks>
@@ -23,7 +27,8 @@ namespace Norse.Primitives.Identifiers;
 		"Deliberately narrow public surface (design doc §3.1): CompareTo covers in-memory sorting and EF-key comparisons; operator sugar is deferred until a concrete caller needs it.")]
 public readonly record struct SequentialGuid : INorseGuid, IComparable<SequentialGuid>
 {
-	static int _counter = RandomNumberGenerator.GetInt32(0x200);
+	/// <summary>Values the engine fills per native call while a batch is wrapped: 4 KB of stack.</summary>
+	const int FillChunk = 256;
 
 	/// <inheritdoc />
 	public Guid Value { get; }
@@ -35,17 +40,8 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 	public DateTime Timestamp { get; }
 
 	/// <summary>Generates a new value from the current time. Always <see cref="GuidByteOrder.Rfc9562"/>.</summary>
-	public SequentialGuid()
+	public SequentialGuid() : this(UuidGenerator.NewV7(), GuidByteOrder.Rfc9562)
 	{
-		var unixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-		var counter = Interlocked.Increment(ref _counter) & 0x3FFFFFF;
-
-		Span<byte> entropy = stackalloc byte[6];
-		RandomNumberGenerator.Fill(entropy);
-
-		Value = SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, entropy);
-		Order = GuidByteOrder.Rfc9562;
-		Timestamp = SequentialGuidBytes.ExtractTimestamp(Value, Order);
 	}
 
 	/// <summary>Wraps an existing value that this platform already produced, tagging it with its known byte order.</summary>
@@ -56,12 +52,13 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 		if (order == GuidByteOrder.Unspecified)
 			throw new ArgumentOutOfRangeException(nameof(order), order,
 				"GuidByteOrder.Unspecified is never a valid argument.");
-		if (!GuidVersionBits.HasVersionAndVariant(value, 7))
+		// Layout-aware: a SQL-ordered value is inspected where its version and variant actually sit.
+		if (!UuidGenerator.IsRfc(value, 7, (UuidLayout)order))
 			throw new ArgumentException("Value must be a version 7 UUID with RFC 9562 variant bits.", nameof(value));
 
 		Value = value;
 		Order = order;
-		Timestamp = SequentialGuidBytes.ExtractTimestamp(value, order);
+		Timestamp = UuidGenerator.V7Timestamp(value, (UuidLayout)order).UtcDateTime;
 	}
 
 	/// <summary>Returns this value converted to <see cref="GuidByteOrder.SqlServer"/> order (a no-op if already there).</summary>
@@ -72,7 +69,7 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 			GuidByteOrder.Unspecified => throw new InvalidOperationException(
 				"default(SequentialGuid) is malformed by construction -- Order is Unspecified. Only wrap a value this platform already produced via the two-arg constructor, or generate a new one with SequentialGuid()."),
 			GuidByteOrder.SqlServer => this,
-			_ => new(SequentialGuidBytes.ToSqlOrder(Value), GuidByteOrder.SqlServer)
+			_ => new(UuidGenerator.V7ToSqlOrder(Value), GuidByteOrder.SqlServer)
 		};
 
 	/// <summary>Returns this value converted to <see cref="GuidByteOrder.Rfc9562"/> order (a no-op if already there).</summary>
@@ -83,7 +80,7 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 			GuidByteOrder.Unspecified => throw new InvalidOperationException(
 				"default(SequentialGuid) is malformed by construction -- Order is Unspecified. Only wrap a value this platform already produced via the two-arg constructor, or generate a new one with SequentialGuid()."),
 			GuidByteOrder.Rfc9562 => this,
-			_ => new(SequentialGuidBytes.ToRfcOrder(Value), GuidByteOrder.Rfc9562)
+			_ => new(UuidGenerator.V7FromSqlOrder(Value), GuidByteOrder.Rfc9562)
 		};
 
 	/// <summary>Implicitly unwraps to the underlying <see cref="Guid"/> (storage/wire representation).</summary>
@@ -115,28 +112,27 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 
 	/// <summary>
 	/// Fills <paramref name="destination"/> with new values sharing a single current-time capture, each
-	/// claiming a contiguous slot in the process-global counter. All <see cref="GuidByteOrder.Rfc9562"/>.
+	/// claiming a contiguous slot in the engine's counter. All <see cref="GuidByteOrder.Rfc9562"/>.
 	/// </summary>
 	/// <exception cref="ArgumentOutOfRangeException"><paramref name="destination"/> exceeds the 26-bit counter space (67,108,864).</exception>
 	public static void Fill(Span<SequentialGuid> destination)
 	{
-		if (destination.Length > 0x400_0000)
+		if (destination.Length > UuidGenerator.MaxV7Batch)
 			throw new ArgumentOutOfRangeException(nameof(destination),
 				"Batch size must not exceed the 26-bit counter space (67,108,864).");
 		if (destination.IsEmpty)
 			return;
 
+		// One timestamp for the whole batch, as before; the engine's counter carries across the
+		// chunks and rolls the millisecond forward itself if it ever wraps.
 		var unixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-		var count = destination.Length;
-		var start = Interlocked.Add(ref _counter, count) - count + 1;
-
-		Span<byte> entropy = stackalloc byte[6];
-		for (var i = 0; i < count; i++)
+		Span<Guid> scratch = stackalloc Guid[Math.Min(destination.Length, FillChunk)];
+		for (var offset = 0; offset < destination.Length; offset += scratch.Length)
 		{
-			RandomNumberGenerator.Fill(entropy);
-			var counter = (start + i) & 0x3FFFFFF;
-			var value = SequentialGuidBytes.GenerateRfc(unixMilliseconds, counter, entropy);
-			destination[i] = new SequentialGuid(value, GuidByteOrder.Rfc9562);
+			var chunk = scratch[..Math.Min(scratch.Length, destination.Length - offset)];
+			UuidGenerator.FillV7(chunk, unixMilliseconds);
+			for (var i = 0; i < chunk.Length; i++)
+				destination[offset + i] = new(chunk[i], GuidByteOrder.Rfc9562);
 		}
 	}
 
@@ -146,7 +142,7 @@ public readonly record struct SequentialGuid : INorseGuid, IComparable<Sequentia
 	{
 		switch (count)
 		{
-			case < 0 or > 0x400_0000:
+			case < 0 or > UuidGenerator.MaxV7Batch:
 				throw new ArgumentOutOfRangeException(nameof(count),
 					"Count must be between 0 and the 26-bit counter space (67,108,864).");
 			case 0:

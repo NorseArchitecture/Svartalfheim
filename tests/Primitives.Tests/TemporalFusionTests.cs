@@ -74,7 +74,8 @@ public sealed class TemporalFusionTests
 		actual.TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
 		failure.ExpectedType.ShouldBe("DateOnly");
-		failure.Format.ShouldBe("ISO 8601");
+		// The gateway fills no Format: the engine declares none (engines-cut spec §4.2).
+		failure.Format.ShouldBeNull();
 	}
 
 	[Fact]
@@ -84,7 +85,7 @@ public sealed class TemporalFusionTests
 		actual.TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
 		failure.ExpectedType.ShouldBe("TimeOnly");
-		failure.Format.ShouldBe("ISO 8601");
+		failure.Format.ShouldBeNull();
 	}
 
 	[Fact]
@@ -168,11 +169,33 @@ public sealed class TemporalFusionTests
 	[Fact]
 	void Should_propagate_date_sentinel_failure_when_date_is_datetime_minvalue()
 	{
-		// DateOnlyParser blocks DateOnly.MinValue (0001-01-01) before TemporalFusion reaches
-		// its own UTC sentinel guard. The sub-parser is the first line of defense.
+		// The engine's date door accepts 0001-01-01 (HyperCast date.json "0001-01-01" → ok; engines-cut
+		// spec §4.7), so the fusion's own UTC sentinel guard is the line of defense: the composite
+		// instant is DateTime.MinValue and is refused as the fused DateTime.
 		var actual = TemporalFusion.FuseRequired("0001-01-01", "00:00:00", "UTC");
 		actual.TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
-		failure.ExpectedType.ShouldBe("DateOnly");
+		failure.ExpectedType.ShouldBe("DateTime");
+	}
+
+	// ── The engines cut: the date and time steps are the gateway's doors ───────────
+
+	[Fact]
+	void Should_fuse_when_the_date_is_padded_and_the_time_has_no_seconds()
+	{
+		// date.json " 2026-01-02 " and time.json "15:04": both corpus-accepted through the gateway.
+		var actual = TemporalFusion.FuseRequired(" 2026-06-15 ", "10:00", "America/Chicago");
+		actual.TryGetValue(out Success<DateTime> success).ShouldBeTrue();
+		success.Value.ShouldBe(new(2026, 6, 15, 15, 0, 0, DateTimeKind.Utc));
+	}
+
+	[Fact]
+	void Should_fail_out_of_range_when_the_time_is_past_the_day()
+	{
+		// time.json "25:00" → out_of_range: the engine's verdict arrives through the fusion unchanged.
+		var actual = TemporalFusion.FuseRequired("2026-06-15", "25:00", "America/Chicago");
+		actual.TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+		failure.ExpectedType.ShouldBe("TimeOnly");
 	}
 }

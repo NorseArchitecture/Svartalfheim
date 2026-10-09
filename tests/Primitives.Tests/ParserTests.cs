@@ -1,280 +1,211 @@
 using System.Globalization;
+using System.Numerics;
 
 namespace Norse.Primitives.Tests;
 
+/// <summary>
+///     The gateway's own law — routing, translation, and the fallthrough — not the engine's grammar,
+///     which HyperCast's corpus proves upstream. Each engine expectation here is one corpus vector,
+///     named in a comment so a corpus change is traceable to the test it moves.
+/// </summary>
 public sealed class ParserTests
 {
 	const string AllWhitespace = " \t\r\n\f ";
 
 	static readonly IFormatProvider _invariant = CultureInfo.InvariantCulture;
 
+	// --- routing: one success per door (HyperCast corpus/<file>.json) ---
+
+	[Fact]
+	void Should_route_bool_to_the_engine() => // boolean.json "yes"
+		Parser.ParseRequired<bool>("yes", _invariant).ShouldBe(new Success<bool>(true));
+
 	[Theory]
-	[InlineData("yes")]
-	[InlineData("on")]
-	[InlineData("1")]
-	void Should_route_to_boolean_specialist_when_parsing_bool(string input)
+	[InlineData("42", 42)] // integer.json i32 "42"
+	[InlineData("  7  ", 7)] // integer.json i32 " 7 "
+	[InlineData("1,234", 1234)] // integer.json i32 "1,234"
+	[InlineData("(1,234)", -1234)] // integer.json i32 "(1,234)"
+	[InlineData("0x2A", 42)] // integer.json i32 "0x2A"
+	void Should_route_int_to_the_engine(string input, int expected) =>
+		Parser.ParseRequired<int>(input, _invariant).ShouldBe(new Success<int>(expected));
+
+	[Theory]
+	[InlineData("1,234.5", 1234.5)] // real.json f64 "1,234.5"
+	[InlineData("50%", 0.5)] // real.json f64 "50%"
+	void Should_route_double_to_the_engine(string input, double expected) =>
+		Parser.ParseRequired<double>(input, _invariant).ShouldBe(new Success<double>(expected));
+
+	[Fact]
+	void Should_route_decimal_to_the_engine() => // decimal.json "1234.5678"
+		Parser.ParseRequired<decimal>("1234.5678", _invariant).ShouldBe(new Success<decimal>(1234.5678m));
+
+	[Theory]
+	[InlineData("A", 'A')] // char.json "A"
+	[InlineData("65", 'A')] // char.json "65"
+	[InlineData("U+0041", 'A')] // char.json "U+0041"
+	[InlineData("&#x41;", 'A')] // char.json "&#x41;"
+	[InlineData(" ", ' ')] // char.json " " — one character, verbatim, before trimming (engines-cut spec §4.7)
+	void Should_route_char_to_the_engine(string input, char expected) =>
+		Parser.ParseRequired<char>(input, _invariant).ShouldBe(new Success<char>(expected));
+
+	[Fact]
+	void Should_route_guid_to_the_engine() => // uuid.json "urn:uuid:…"
+		Parser.ParseRequired<Guid>("urn:uuid:01020304-0506-0708-090a-0b0c0d0e0f10", _invariant)
+			.ShouldBe(new Success<Guid>(new("01020304-0506-0708-090a-0b0c0d0e0f10")));
+
+	[Fact]
+	void Should_route_date_to_the_engine() => // date.json "2026-01-02"
+		Parser.ParseRequired<DateOnly>("2026-01-02", _invariant).ShouldBe(new Success<DateOnly>(new(2026, 1, 2)));
+
+	[Fact]
+	void Should_route_time_to_the_engine() => // time.json "15:04:05.123"
+		Parser.ParseRequired<TimeOnly>("15:04:05.123", _invariant).ShouldBe(new Success<TimeOnly>(new(15, 4, 5, 123)));
+
+	[Fact]
+	void Should_route_timestamp_to_the_engine_normalized_to_utc() => // timestamp.json "+05:00"
+		Parser.ParseRequired<DateTimeOffset>("2026-01-02T15:04:05+05:00", _invariant)
+			.ShouldBe(new Success<DateTimeOffset>(new(2026, 1, 2, 10, 4, 5, TimeSpan.Zero)));
+
+	[Fact]
+	void Should_route_datetime_to_the_engine_as_utc_kind() // timestamp.json "Z"; engines-cut spec §4.7 DateTime row
 	{
-		var actual = Parser.ParseRequired<bool>(input, _invariant);
-		actual.TryGetValue(out Success<bool> success).ShouldBeTrue();
-		success.Value.ShouldBeTrue();
+		Parser.ParseRequired<DateTime>("2026-01-02T15:04:05Z", _invariant).TryGetValue(out Success<DateTime> success)
+			.ShouldBeTrue();
+		success.Value.ShouldBe(new DateTime(2026, 1, 2, 15, 4, 5, DateTimeKind.Utc));
+		success.Value.Kind.ShouldBe(DateTimeKind.Utc);
 	}
 
 	[Fact]
-	void Should_route_to_boolean_specialist_when_parsing_optional_bool()
+	void Should_reject_a_zone_less_datetime() // timestamp.json "2026-01-02T15:04:05" → malformed
 	{
-		var actual = Parser.ParseOptional<bool>("no", _invariant);
-		actual.HasValue.ShouldBeTrue();
-		actual.Value.TryGetValue(out Success<bool> success).ShouldBeTrue();
-		success.Value.ShouldBeFalse();
-	}
-
-	[Fact]
-	void Should_route_failure_through_boolean_specialist_when_bool_input_is_unrecognized()
-	{
-		var actual = Parser.ParseRequired<bool>("maybe", _invariant);
-		actual.TryGetValue(out Failure failure).ShouldBeTrue();
+		Parser.ParseRequired<DateTimeOffset>("2026-01-02T15:04:05", _invariant).TryGetValue(out Failure failure)
+			.ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
-		failure.ExpectedType.ShouldBe("Boolean");
 	}
 
 	[Fact]
-	void Should_return_absent_when_optional_bool_input_is_absent() =>
-		Parser.ParseOptional<bool>("  ", _invariant).HasValue.ShouldBeFalse();
+	void Should_route_duration_to_the_engine() => // duration.json "P1DT6H"
+		Parser.ParseRequired<TimeSpan>("P1DT6H", _invariant).ShouldBe(new Success<TimeSpan>(new(1, 6, 0, 0)));
+
+	// --- translation: every CastFailure arrives as its ParseFailure, with the forge's diagnostics ---
 
 	[Fact]
-	void Should_not_leak_boolean_vocabulary_when_parsing_int()
+	void Should_translate_malformed_with_the_trimmed_input_and_the_clr_type_name()
 	{
-		var actual = Parser.ParseRequired<int>("yes", _invariant);
-		actual.TryGetValue(out Failure failure).ShouldBeTrue();
-		failure.Reason.ShouldBe(ParseFailure.Malformed);
-		failure.ExpectedType.ShouldBe("Int32");
+		Parser.ParseRequired<int>("  bogus  ", _invariant).TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.ShouldBe(new(ParseFailure.Malformed, "bogus", "Int32"));
 	}
 
 	[Theory]
-	[InlineData("42", 42)]
-	[InlineData("  7  ", 7)]
-	[InlineData("-13", -13)]
-	void Should_parse_value_when_int_input_is_recognized(string input, int expected)
+	[InlineData("256")] // integer.json u8 "256"
+	[InlineData("-1")] // integer.json u8 "-1"
+	void Should_translate_out_of_range_for_byte(string input)
 	{
-		var actual = Parser.ParseRequired<int>(input, _invariant);
-		actual.TryGetValue(out Success<int> success).ShouldBeTrue();
-		success.Value.ShouldBe(expected);
+		Parser.ParseRequired<byte>(input, _invariant).TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
+		failure.ExpectedType.ShouldBe("Byte");
 	}
 
 	[Fact]
-	void Should_honor_declared_provider_when_parsing_decimal()
+	void Should_translate_out_of_range_for_a_code_point_past_the_bmp() // char.json "😀": a C# char cannot hold it
 	{
-		Parser.ParseRequired<decimal>("1.5", _invariant)
-			.TryGetValue(out Success<decimal> invariantSuccess).ShouldBeTrue();
-		invariantSuccess.Value.ShouldBe(1.5m);
-		Parser.ParseRequired<decimal>("1,5", CultureInfo.GetCultureInfo("de-DE"))
-			.TryGetValue(out Success<decimal> germanSuccess).ShouldBeTrue();
-		germanSuccess.Value.ShouldBe(1.5m);
-	}
-
-	[Fact]
-	void Should_parse_value_when_guid_rides_the_generic_path()
-	{
-		var expected = Guid.NewGuid();
-		var actual = Parser.ParseRequired<Guid>(expected.ToString("D"), _invariant);
-		actual.TryGetValue(out Success<Guid> success).ShouldBeTrue();
-		success.Value.ShouldBe(expected);
+		Parser.ParseRequired<char>("U+1F600", _invariant).TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Reason.ShouldBe(ParseFailure.OutOfRange);
 	}
 
 	[Theory]
-	[InlineData(null)]
 	[InlineData("")]
 	[InlineData(AllWhitespace)]
-	void Should_fail_with_empty_reason_when_required_input_is_absent(string? input)
+	void Should_translate_empty_when_required_input_is_blank(string input)
 	{
-		var actual = Parser.ParseRequired<int>(input, _invariant);
-		actual.TryGetValue(out Failure failure).ShouldBeTrue();
-		failure.Reason.ShouldBe(ParseFailure.Empty);
-		failure.Input.ShouldBe(string.Empty);
-		failure.ExpectedType.ShouldBe("Int32");
-	}
-
-	[Theory]
-	[InlineData(null)]
-	[InlineData("")]
-	[InlineData(AllWhitespace)]
-	void Should_return_absent_when_optional_input_is_absent(string? input) =>
-		Parser.ParseOptional<int>(input, _invariant).HasValue.ShouldBeFalse();
-
-	[Theory]
-	[InlineData("abc")]
-	[InlineData("12.5")]
-	[InlineData("fourty-two")]
-	void Should_fail_with_malformed_reason_when_int_input_is_unrecognized(string input)
-	{
-		var actual = Parser.ParseRequired<int>(input, _invariant);
-		actual.TryGetValue(out Failure failure).ShouldBeTrue();
-		failure.Reason.ShouldBe(ParseFailure.Malformed);
-		failure.Input.ShouldBe(input.Trim());
-		failure.ExpectedType.ShouldBe("Int32");
-		failure.Format.ShouldBeNull();
-		failure.Detail.ShouldBeNull();
+		Parser.ParseRequired<int>(input, _invariant).TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.ShouldBe(new(ParseFailure.Empty, string.Empty, "Int32"));
 	}
 
 	[Fact]
-	void Should_truncate_captured_input_when_malformed_input_is_oversized()
+	void Should_bound_the_echoed_input_to_max_input_length()
 	{
-		string oversized = new('9', Failure.MaxInputLength + 44);
-		var actual = Parser.ParseRequired<int>(oversized, _invariant);
-		actual.TryGetValue(out Failure failure).ShouldBeTrue();
-		failure.Reason.ShouldBe(ParseFailure.Malformed);
+		var input = new string('x', Failure.MaxInputLength + 50);
+		Parser.ParseRequired<long>(input, _invariant).TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Input.Length.ShouldBe(Failure.MaxInputLength);
 	}
 
 	[Fact]
-	void Should_fail_with_malformed_reason_when_optional_input_is_unrecognized()
+	void Should_leave_format_and_detail_null_from_the_engine()
 	{
-		var actual = Parser.ParseOptional<int>("abc", _invariant);
+		Parser.ParseRequired<Guid>("nope", _invariant).TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.Format.ShouldBeNull();
+		failure.Detail.ShouldBeNull();
+	}
+
+	// --- optional ---
+
+	[Theory]
+	[InlineData("")]
+	[InlineData(AllWhitespace)]
+	void Should_return_absent_when_optional_input_is_blank(string input) =>
+		Parser.ParseOptional<int>(input, _invariant).ShouldBeNull();
+
+	[Fact]
+	void Should_return_the_value_when_optional_input_is_present() =>
+		Parser.ParseOptional<bool>("no", _invariant).ShouldBe(new Success<bool>(false));
+
+	[Fact]
+	void Should_return_the_failure_when_optional_input_is_malformed()
+	{
+		var actual = Parser.ParseOptional<Guid>("nope", _invariant);
 		actual.HasValue.ShouldBeTrue();
 		actual.Value.TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
 	}
 
 	[Fact]
-	void Should_throw_when_required_provider_is_null() =>
-		Should.Throw<ArgumentNullException>(() => Parser.ParseRequired<int>("42", null!));
+	void Should_return_absent_through_the_fallthrough_when_optional_input_is_blank() =>
+		Parser.ParseOptional<string>(AllWhitespace, _invariant).ShouldBeNull();
+
+	// --- culture: the provider passes straight through to the engine's bridge (engines-cut spec §4.4) ---
 
 	[Fact]
-	void Should_throw_when_optional_provider_is_null() =>
-		Should.Throw<ArgumentNullException>(() => Parser.ParseOptional<int>("42", null!));
+	void Should_honor_a_declared_culture_for_numeric_doors() =>
+		Parser.ParseRequired<decimal>("1.234,5", CultureInfo.GetCultureInfo("de-DE")).ShouldBe(new Success<decimal>(1234.5m));
 
 	[Fact]
-	void Should_route_integer_vocabulary_through_the_gateway()
+	void Should_ignore_the_provider_on_culture_insensitive_doors() =>
+		Parser.ParseRequired<DateOnly>("2026-01-02", CultureInfo.GetCultureInfo("de-DE"))
+			.ShouldBe(new Success<DateOnly>(new(2026, 1, 2)));
+
+	[Fact]
+	void Should_throw_when_provider_is_null() =>
+		// The one place `null!` is the point: the gateway's provider law is being proven, not dodged.
+		Should.Throw<ArgumentNullException>(() => Parser.ParseRequired<int>("1", null!));
+
+	// --- the fallthrough: no engine door, ISpanParsable<T> as before ---
+
+	[Fact]
+	void Should_fall_through_to_span_parsable_for_string() =>
+		Parser.ParseRequired<string>("  text  ", _invariant).ShouldBe(new Success<string>("text"));
+
+	[Fact]
+	void Should_fall_through_to_span_parsable_for_int128() =>
+		Parser.ParseRequired<Int128>("170141183460469231731687303715884105727", _invariant)
+			.ShouldBe(new Success<Int128>(Int128.MaxValue));
+
+	[Fact]
+	void Should_fall_through_to_span_parsable_for_big_integer() =>
+		Parser.ParseRequired<BigInteger>("12345678901234567890123", _invariant)
+			.ShouldBe(new Success<BigInteger>(BigInteger.Parse("12345678901234567890123", CultureInfo.InvariantCulture)));
+
+	[Fact]
+	void Should_report_malformed_through_the_fallthrough()
 	{
-		Parser.ParseRequired<int>("1,234", _invariant)
-			.TryGetValue(out Success<int> thousands).ShouldBeTrue();
-		thousands.Value.ShouldBe(1234);
-		Parser.ParseRequired<int>("0x2A", _invariant)
-			.TryGetValue(out Success<int> hex).ShouldBeTrue();
-		hex.Value.ShouldBe(42);
+		Parser.ParseRequired<Half>("nope", _invariant).TryGetValue(out Failure failure).ShouldBeTrue();
+		failure.ShouldBe(new(ParseFailure.Malformed, "nope", "Half"));
 	}
 
 	[Fact]
-	void Should_route_real_percentage_through_the_gateway()
+	void Should_not_leak_boolean_vocabulary_into_int()
 	{
-		Parser.ParseRequired<double>("50%", _invariant)
-			.TryGetValue(out Success<double> success).ShouldBeTrue();
-		success.Value.ShouldBe(0.5);
-	}
-
-	[Fact]
-	void Should_route_char_code_point_through_the_gateway()
-	{
-		Parser.ParseRequired<char>("65", _invariant)
-			.TryGetValue(out Success<char> success).ShouldBeTrue();
-		success.Value.ShouldBe('A');
-	}
-
-	[Fact]
-	void Should_route_guid_prefix_through_the_gateway()
-	{
-		Guid expected = new("01020304-0506-0708-090a-0b0c0d0e0f10");
-		Parser.ParseRequired<Guid>("urn:uuid:01020304-0506-0708-090a-0b0c0d0e0f10", _invariant)
-			.TryGetValue(out Success<Guid> success).ShouldBeTrue();
-		success.Value.ShouldBe(expected);
-	}
-
-	[Fact]
-	void Should_route_optional_integer_vocabulary_through_the_gateway()
-	{
-		var actual = Parser.ParseOptional<int>("(7)", _invariant);
-		actual.HasValue.ShouldBeTrue();
-		actual.Value.TryGetValue(out Success<int> success).ShouldBeTrue();
-		success.Value.ShouldBe(-7);
-	}
-
-	[Fact]
-	void Should_require_provider_even_for_culture_insensitive_char() =>
-		Should.Throw<ArgumentNullException>(() => Parser.ParseRequired<char>("A", null!));
-
-	[Fact]
-	void Should_route_iso_date_through_the_gateway()
-	{
-		Parser.ParseRequired<DateOnly>("2026-01-02", _invariant)
-			.TryGetValue(out Success<DateOnly> success).ShouldBeTrue();
-		success.Value.ShouldBe(new(2026, 1, 2));
-	}
-
-	[Fact]
-	void Should_route_iso_datetimeoffset_to_utc_through_the_gateway()
-	{
-		Parser.ParseRequired<DateTimeOffset>("2026-01-02T15:04:05+05:00", _invariant)
-			.TryGetValue(out Success<DateTimeOffset> success).ShouldBeTrue();
-		success.Value.Offset.ShouldBe(TimeSpan.Zero);
-		success.Value.Hour.ShouldBe(10);
-	}
-
-	[Fact]
-	void Should_route_iso_datetime_to_utc_through_the_gateway()
-	{
-		Parser.ParseRequired<DateTime>("2026-01-02T15:04:05Z", _invariant)
-			.TryGetValue(out Success<DateTime> dateTime).ShouldBeTrue();
-		dateTime.Value.Kind.ShouldBe(DateTimeKind.Utc);
-	}
-
-	[Fact]
-	void Should_route_iso_time_through_the_gateway()
-	{
-		Parser.ParseRequired<TimeOnly>("15:04:05", _invariant)
-			.TryGetValue(out Success<TimeOnly> time).ShouldBeTrue();
-		time.Value.ShouldBe(new(15, 4, 5));
-	}
-
-	[Fact]
-	void Should_route_iso_timespan_through_the_gateway()
-	{
-		Parser.ParseRequired<TimeSpan>("PT1H30M", _invariant)
-			.TryGetValue(out Success<TimeSpan> span).ShouldBeTrue();
-		span.Value.ShouldBe(new(1, 30, 0));
-	}
-
-	[Fact]
-	void Should_route_full_iso8601_duration_through_the_gateway()
-	{
-		Parser.ParseRequired<TimeSpan>("P1DT2H3M4S", _invariant)
-			.TryGetValue(out Success<TimeSpan> span).ShouldBeTrue();
-		span.Value.ShouldBe(new(1, 2, 3, 4));
-	}
-
-	[Theory]
-	[InlineData("NaN")]
-	[InlineData("Infinity")]
-	[InlineData("-Infinity")]
-	[InlineData("INF")]
-	[InlineData("-INF")]
-	void Should_reject_non_finite_real_through_the_gateway(string lexeme)
-	{
-		Parser.ParseRequired<double>(lexeme, _invariant)
-			.TryGetValue(out Failure failure).ShouldBeTrue();
+		Parser.ParseRequired<int>("yes", _invariant).TryGetValue(out Failure failure).ShouldBeTrue();
 		failure.Reason.ShouldBe(ParseFailure.Malformed);
 	}
-
-	[Theory]
-	[InlineData("1/2/2026")]              // US slash date
-	[InlineData("2026-01-02T15:04:05")]   // zone-less datetime
-	void Should_reject_non_iso_temporal_through_the_gateway(string input)
-	{
-		Parser.ParseRequired<DateTimeOffset>(input, _invariant)
-			.TryGetValue(out Failure failure).ShouldBeTrue();
-		failure.Reason.ShouldBe(ParseFailure.Malformed);
-		failure.Format.ShouldBe("ISO 8601");
-	}
-
-	[Fact]
-	void Should_not_guess_a_bare_number_as_a_date_through_the_gateway() =>
-		Parser.ParseRequired<DateTimeOffset>("1700000000", _invariant)
-			.TryGetValue(out Failure _).ShouldBeTrue();
-
-	[Fact]
-	void Should_route_optional_temporal_absence_as_null_through_the_gateway() =>
-		Parser.ParseOptional<DateOnly>("  ", _invariant).HasValue.ShouldBeFalse();
-
-	[Fact]
-	void Should_require_provider_even_for_culture_insensitive_temporal() =>
-		Should.Throw<ArgumentNullException>(() => Parser.ParseRequired<DateOnly>("2026-01-02", null!));
 }

@@ -1,4 +1,5 @@
 using System.Data.SqlTypes;
+using HyperUuid;
 using Norse.Primitives.Identifiers;
 
 namespace Norse.Primitives.Tests.Identifiers;
@@ -11,7 +12,7 @@ public sealed class SequentialGuidTests
 		SequentialGuid value = new();
 
 		value.Order.ShouldBe(GuidByteOrder.Rfc9562);
-		GuidVersionBits.HasVersionAndVariant(value.Value, 7).ShouldBeTrue();
+		UuidGenerator.IsRfc(value.Value, 7).ShouldBeTrue();
 	}
 
 	[Fact]
@@ -135,5 +136,27 @@ public sealed class SequentialGuidTests
 		Action act = () => default(SequentialGuid).GetHashCode();
 
 		Should.Throw<InvalidOperationException>(act);
+	}
+
+	// ── The engines cut ────────────────────────────────────────────────────────
+
+	[Fact]
+	void Should_validate_a_sql_ordered_value_in_place_when_wrapped()
+	{
+		var sql = new SequentialGuid().ToSqlOrder();
+		SequentialGuid wrapped = new(sql.Value, GuidByteOrder.SqlServer);
+		wrapped.Timestamp.ShouldBe(sql.Timestamp);
+		wrapped.ToRfcOrder().Value.ShouldBe(sql.ToRfcOrder().Value);
+	}
+
+	[Fact]
+	void Should_match_the_engine_s_permutation_byte_for_byte()
+	{
+		// HyperUuid corpus/sql_order.json, the vector hand-checked against this realm's retired
+		// SequentialGuidBytes.ToSqlOrder on 2026-10-08.
+		// The corpus pins the SQL side as the bytes .NET's ToByteArray() yields for the SQL-ordered Guid.
+		Guid rfc = new(Convert.FromHexString("00000000000070008007010203040506"), bigEndian: true);
+		Convert.ToHexStringLower(new SequentialGuid(rfc, GuidByteOrder.Rfc9562).ToSqlOrder().Value.ToByteArray())
+			.ShouldBe("03040506010200778000000000000000");
 	}
 }

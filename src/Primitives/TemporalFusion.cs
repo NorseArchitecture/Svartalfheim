@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Norse.Primitives;
 
 /// <summary>
@@ -7,7 +9,7 @@ namespace Norse.Primitives;
 /// <remarks>
 /// <para>
 /// Each input is parsed independently through the established ISO-canonical doors —
-/// <see cref="DateOnlyParser.ParseRequired"/>, <see cref="TimeOnlyParser.ParseRequired"/>,
+/// <see cref="Parser.ParseRequired{T}"/> for the date and the time (HyperCast's strict ISO doors),
 /// <see cref="TimeZoneParser.ParseRequired"/> — in the documented date → time → zone order;
 /// the first sub-parse that fails returns its <see cref="Failure"/> verbatim. Both DST seams
 /// are checked before the BCL conversion: a spring-forward gap is
@@ -82,13 +84,13 @@ public static class TemporalFusion
 
 	static Result<DateTime> Fuse(ReadOnlySpan<char> date, ReadOnlySpan<char> time, ReadOnlySpan<char> zone)
 	{
-		var dateResult = DateOnlyParser.ParseRequired(date);
+		var dateResult = Parser.ParseRequired<DateOnly>(date, CultureInfo.InvariantCulture);
 		if (!dateResult.TryGetValue(out Success<DateOnly> dateSuccess))
 		{
 			dateResult.TryGetValue(out Failure dateFailure);
 			return dateFailure;
 		}
-		var timeResult = TimeOnlyParser.ParseRequired(time);
+		var timeResult = Parser.ParseRequired<TimeOnly>(time, CultureInfo.InvariantCulture);
 		if (!timeResult.TryGetValue(out Success<TimeOnly> timeSuccess))
 		{
 			timeResult.TryGetValue(out Failure timeFailure);
