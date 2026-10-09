@@ -58,6 +58,7 @@ public sealed class FailureTests
 	[Theory]
 	[InlineData(ParseFailure.Empty)]
 	[InlineData(ParseFailure.Malformed)]
+	[InlineData(ParseFailure.OutOfRange)]
 	[InlineData(ParseFailure.Duplicate)]
 	void Should_construct_when_reason_is_a_real_failure(ParseFailure reason)
 	{

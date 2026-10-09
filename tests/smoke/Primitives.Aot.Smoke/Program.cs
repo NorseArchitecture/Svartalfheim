@@ -55,9 +55,9 @@ Check("gateway rejects a zone-less datetime", () =>
 Check("gateway routes an ISO-8601 duration", () =>
 	Parser.ParseRequired<TimeSpan>("PT1H30M", invariant) == (Result<TimeSpan>)new Success<TimeSpan>(new TimeSpan(1, 30, 0)));
 
-Check("declared unix epoch parses off-gateway", () =>
-	DateTimeOffsetParser.ParseUnix("1700000000", UnixPrecision.Seconds)
-		.TryGetValue(out Success<DateTimeOffset> epoch) && epoch.Value.Year == 2023);
+Check("gateway translates the engine's out-of-range verdict", () =>
+	Parser.ParseRequired<byte>("256", invariant).TryGetValue(out Failure outOfRange)
+		&& outOfRange.Reason == ParseFailure.OutOfRange);
 
 Check("TimeZoneParser resolves a known IANA id off-gateway", () =>
 	TimeZoneParser.ParseRequired("America/Chicago").TryGetValue(out Success<TimeZoneInfo> _));

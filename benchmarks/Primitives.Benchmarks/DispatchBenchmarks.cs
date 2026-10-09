@@ -1,5 +1,10 @@
+using HyperCast;
+
 namespace Norse.Primitives.Benchmarks;
 
+// The forge's wrapping tax over the engine: a direct engine call against the gateway's routed,
+// translated Result<T>. The September seam record put the tax at ~40 ns; the engines cut should hold
+// or lower it. Baseline is the direct bool door, as DirectSpecialist was before the cut.
 [MemoryDiagnoser]
 public class DispatchBenchmarks
 {
@@ -9,12 +14,16 @@ public class DispatchBenchmarks
 	static readonly IFormatProvider _invariant = CultureInfo.InvariantCulture;
 
 	[Benchmark(Baseline = true)]
-	public Result<bool> DirectSpecialist() =>
-		BooleanParser.ParseRequired(BoolInput);
+	public Verdict<bool> DirectEngineBool() =>
+		Cast.Scalar<bool>(BoolInput, _invariant);
 
 	[Benchmark]
 	public Result<bool> GatewayBool() =>
 		Parser.ParseRequired<bool>(BoolInput, _invariant);
+
+	[Benchmark]
+	public Verdict<int> DirectEngineInt() =>
+		Cast.Scalar<int>(IntInput, _invariant);
 
 	[Benchmark]
 	public Result<int> GatewayInt() =>

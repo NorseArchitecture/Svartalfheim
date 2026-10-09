@@ -1,4 +1,5 @@
 using System.Text;
+using HyperUuid;
 using Norse.Primitives.Identifiers;
 
 namespace Norse.Primitives.Tests.Identifiers;
@@ -52,7 +53,7 @@ public sealed class DeterministicGuidTests
 	void Should_be_well_formed_version5_when_generated()
 	{
 		DeterministicGuid value = new(DeterministicGuid.Namespaces.Url, "https://example.com");
-		GuidVersionBits.HasVersionAndVariant(value.Value, 5).ShouldBeTrue();
+		UuidGenerator.IsRfc(value.Value, 5).ShouldBeTrue();
 	}
 
 	[Fact]

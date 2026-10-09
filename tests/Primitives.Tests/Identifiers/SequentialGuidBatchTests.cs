@@ -1,3 +1,4 @@
+using HyperUuid;
 using Norse.Primitives.Identifiers;
 
 namespace Norse.Primitives.Tests.Identifiers;
@@ -14,7 +15,7 @@ public sealed class SequentialGuidBatchTests
 		SequentialGuid[] array = [.. destination];
 		array.Distinct().Count().ShouldBe(10);
 		foreach (var value in array)
-			GuidVersionBits.HasVersionAndVariant(value.Value, 7).ShouldBeTrue();
+			UuidGenerator.IsRfc(value.Value, 7).ShouldBeTrue();
 	}
 
 	[Fact]
@@ -69,4 +70,15 @@ public sealed class SequentialGuidBatchTests
 	[Fact]
 	void Should_throw_when_count_exceeds_the_counter_space() =>
 		Should.Throw<ArgumentOutOfRangeException>(() => SequentialGuid.CreateMany(0x400_0001));
+
+	[Fact]
+	void Should_fill_more_than_one_chunk_in_order()
+	{
+		// The engine fills 256 values per native call; 1_000 crosses three chunk boundaries.
+		var values = SequentialGuid.CreateMany(1_000);
+
+		values.Select(x => x.Timestamp).Distinct().Count().ShouldBe(1);
+		for (var i = 1; i < values.Length; i++)
+			values[i].CompareTo(values[i - 1]).ShouldBeGreaterThan(0);
+	}
 }
