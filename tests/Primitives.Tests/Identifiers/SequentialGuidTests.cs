@@ -153,10 +153,11 @@ public sealed class SequentialGuidTests
 	void Should_match_the_engine_s_permutation_byte_for_byte()
 	{
 		// HyperUuid corpus/sql_order.json, the vector hand-checked against this realm's retired
-		// SequentialGuidBytes.ToSqlOrder on 2026-10-08.
+		// SequentialGuidBytes.ToSqlOrder on 2026-10-08. Since HyperUuid 0.9.0 (#36) the SQL-ordered
+		// value is an RFC 9562 version 8: one nibble differs from the retired permutation (0x77 → 0x87).
 		// The corpus pins the SQL side as the bytes .NET's ToByteArray() yields for the SQL-ordered Guid.
 		Guid rfc = new(Convert.FromHexString("00000000000070008007010203040506"), bigEndian: true);
 		Convert.ToHexStringLower(new SequentialGuid(rfc, GuidByteOrder.Rfc9562).ToSqlOrder().Value.ToByteArray())
-			.ShouldBe("03040506010200778000000000000000");
+			.ShouldBe("03040506010200878000000000000000");
 	}
 }

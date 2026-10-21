@@ -12,8 +12,9 @@ namespace Norse.Primitives.Identifiers;
 /// <remarks>
 /// The engine is HyperUuid's <see cref="UuidGenerator"/>: generation, the SQL Server permutation (pinned
 /// byte for byte by HyperUuid's <c>corpus/sql_order.json</c>, which was generated from this realm's own
-/// retired arithmetic), timestamp extraction, and version/variant inspection — all layout-aware, so a
-/// SQL-ordered value is inspected in place. This type is the forge's contract over that engine:
+/// retired arithmetic; since HyperUuid 0.9.0 the SQL-ordered value carries version 8 where RFC 9562
+/// readers look, one nibble off that arithmetic), timestamp extraction, and version/variant inspection —
+/// all layout-aware, so a SQL-ordered value is inspected in place. This type is the forge's contract over that engine:
 /// <see cref="GuidByteOrder"/> is <c>UuidLayout</c> by number.
 /// The public surface is deliberately narrow: no <see cref="object.ToString"/> override, no parsing, no
 /// comparison operators (see the design doc's trust-boundary rationale, §3.1) — <see cref="CompareTo"/>
