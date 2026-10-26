@@ -5,8 +5,8 @@
 		<NorseFrontendPlatforms>All</NorseFrontendPlatforms>
 	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="HyperCast" Version="*" />
-		<PackageReference Include="HyperUuid" Version="*" />
+		<PackageReference Include="HyperCast" Version="1.*" />
+		<PackageReference Include="HyperUuid" Version="1.*" />
 		<ProjectReference
 			Include="../../gen/Primitives.Analyzers/Primitives.Analyzers.csproj"
 			OutputItemType="Analyzer"
